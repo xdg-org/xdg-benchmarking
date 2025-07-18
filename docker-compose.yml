@@ -1,0 +1,76 @@
+version: '3.8'
+
+services:
+  dashboard:
+    build: .
+    ports:
+      - "8050:8050"
+    volumes:
+      - ./results:/app/results
+      - ./logs:/app/logs
+      - ./assets:/app/assets
+    environment:
+      - FLASK_ENV=production
+      - DEBUG=False
+      - HOST=0.0.0.0
+      - PORT=8050
+      - MAX_WORKERS=4
+      - LOG_LEVEL=INFO
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8050/health/simple"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Development service with hot reload
+  dashboard-dev:
+    build: .
+    ports:
+      - "8051:8050"
+    volumes:
+      - ./results:/app/results
+      - ./logs:/app/logs
+      - ./assets:/app/assets
+      - .:/app  # Mount source code for development
+    environment:
+      - FLASK_ENV=development
+      - DEBUG=True
+      - HOST=0.0.0.0
+      - PORT=8050
+      - LOG_LEVEL=DEBUG
+    command: python dashboard.py
+    profiles:
+      - dev
+
+  # Production service with multiple workers
+  dashboard-prod:
+    build: .
+    ports:
+      - "8052:8050"
+    volumes:
+      - ./results:/app/results
+      - ./logs:/app/logs
+      - ./assets:/app/assets
+    environment:
+      - FLASK_ENV=production
+      - DEBUG=False
+      - HOST=0.0.0.0
+      - PORT=8050
+      - MAX_WORKERS=8
+      - LOG_LEVEL=WARNING
+    command: gunicorn -c gunicorn.conf.py dashboard_production:server
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8050/health/simple"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    profiles:
+      - prod
+
+volumes:
+  results:
+  logs:

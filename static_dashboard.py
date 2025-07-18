@@ -20,22 +20,23 @@ class StaticDashboardGenerator:
     def load_data(self):
         """Load all benchmark data"""
         data = []
-
         # Discover runs
         runs_dir = os.path.join(self.results_dir, "runs")
+        print(f"Looking for runs in: {runs_dir}")
         if os.path.exists(runs_dir):
+            print(f"Found runs directory: {runs_dir}")
             for run_id in os.listdir(runs_dir):
                 run_path = os.path.join(runs_dir, run_id)
+                print(f"Checking run: {run_id}")
                 if os.path.isdir(run_path):
                     config_file = os.path.join(run_path, "config.json")
                     results_file = os.path.join(run_path, "results.json")
-
                     if os.path.exists(config_file) and os.path.exists(results_file):
+                        print(f"  Found config and results for {run_id}")
                         with open(config_file, 'r') as f:
                             config = json.load(f)
                         with open(results_file, 'r') as f:
                             results = json.load(f)
-
                         # Process results
                         for model, model_results in results['results'].items():
                             for executable, exec_results in model_results.items():
@@ -49,8 +50,18 @@ class StaticDashboardGenerator:
                                         'active_rate': scaling_point['active_rate'],
                                         'inactive_rate': scaling_point['inactive_rate']
                                     })
-
-        return pd.DataFrame(data)
+                        print(f"  Added {len([d for d in data if d['run_id'] == run_id])} data points for {run_id}")
+                    else:
+                        print(f"  Missing config or results for {run_id}")
+        else:
+            print(f"Runs directory not found: {runs_dir}")
+        df = pd.DataFrame(data)
+        print(f"Total data points loaded: {len(df)}")
+        if not df.empty:
+            print(f"Models: {df['model'].unique()}")
+            print(f"Executables: {df['executable'].unique()}")
+            print(f"Runs: {df['run_id'].unique()}")
+        return df
 
     def format_run_display_name(self, run_id, date_str):
         """Format run ID for display"""
@@ -70,6 +81,22 @@ class StaticDashboardGenerator:
         if df_filtered.empty:
             return "", "", ""
 
+        # Define line styles for different models
+        model_line_styles = {
+            'atr': 'solid',
+            'tokamak': 'dash',
+            'msre': 'dot',
+            'default': 'solid'
+        }
+
+        # Define consistent colors for different executables
+        executable_colors = {
+            'moab': '#1f77b4',      # Blue
+            'xdg': '#ff7f0e',       # Orange
+            'double-down': '#2ca02c', # Green
+            'default': '#d62728'    # Red for any new executables
+        }
+
         # Scaling chart
         scaling_fig = go.Figure()
         for executable in df_filtered['executable'].unique():
@@ -79,11 +106,16 @@ class StaticDashboardGenerator:
 
                 if not exec_model_data.empty:
                     exec_model_data_sorted = exec_model_data.sort_values('threads')
+                    line_style = model_line_styles.get(model, model_line_styles['default'])
+                    line_color = executable_colors.get(executable, executable_colors['default'])
+
                     scaling_fig.add_trace(go.Scatter(
                         x=exec_model_data_sorted['threads'],
                         y=exec_model_data_sorted[metric],
                         mode='lines+markers',
                         name=f'{executable.upper()} - {model.title()}',
+                        line=dict(dash=line_style, color=line_color),
+                        marker=dict(color=line_color),
                         hovertemplate='Model: ' + model.title() + '<br>Threads: %{x}<br>' +
                                     metric.replace('_', ' ').title() + ': %{y:.2f}<extra></extra>'
                     ))
@@ -111,12 +143,16 @@ class StaticDashboardGenerator:
                         if pd.notna(single_thread) and single_thread > 0:
                             exec_model_data['speedup'] = exec_model_data[metric] / single_thread
                             exec_model_data_sorted = exec_model_data.sort_values('threads')
+                            line_style = model_line_styles.get(model, model_line_styles['default'])
+                            line_color = executable_colors.get(executable, executable_colors['default'])
 
                             speedup_fig.add_trace(go.Scatter(
                                 x=exec_model_data_sorted['threads'],
                                 y=exec_model_data_sorted['speedup'],
                                 mode='lines+markers',
                                 name=f'{executable.upper()} - {model.title()}',
+                                line=dict(dash=line_style, color=line_color),
+                                marker=dict(color=line_color),
                                 hovertemplate='Model: ' + model.title() + '<br>Threads: %{x}<br>Speedup: %{y:.2f}<extra></extra>'
                             ))
 
@@ -148,7 +184,8 @@ class StaticDashboardGenerator:
             y=metric,
             color='executable',
             title=f'Maximum {metric.replace("_", " ").title()} by Model and Executable',
-            barmode='group'
+            barmode='group',
+            color_discrete_map=executable_colors
         )
         comparison_fig.update_layout(
             xaxis_title="Model",

@@ -328,7 +328,23 @@ def update_charts(selected_models, selected_executables, selected_runs, selected
     if df_filtered.empty:
         return {}, {}, {}, "No data available for selected metric", "No data available"
 
-        # Scaling chart
+    # Define line styles for different models
+    model_line_styles = {
+        'atr': 'solid',
+        'tokamak': 'dash',
+        'msre': 'dot',
+        'default': 'solid'
+    }
+
+    # Define consistent colors for different executables
+    executable_colors = {
+        'moab': '#1f77b4',      # Blue
+        'xdg': '#ff7f0e',       # Orange
+        'double-down': '#2ca02c', # Green
+        'default': '#d62728'    # Red for any new executables
+    }
+
+    # Scaling chart
     scaling_fig = go.Figure()
 
     # Plot each executable and model combination separately
@@ -342,11 +358,19 @@ def update_charts(selected_models, selected_executables, selected_runs, selected
                 # Sort by thread count to ensure proper line plotting
                 exec_model_data_sorted = exec_model_data.sort_values('threads')
 
+                # Get line style for this model
+                line_style = model_line_styles.get(model, model_line_styles['default'])
+
+                # Get color for this executable
+                line_color = executable_colors.get(executable, executable_colors['default'])
+
                 scaling_fig.add_trace(go.Scatter(
                     x=exec_model_data_sorted['threads'],
                     y=exec_model_data_sorted[selected_metric],
                     mode='lines+markers',
                     name=f'{executable.upper()} - {model.title()}',
+                    line=dict(dash=line_style, color=line_color),
+                    marker=dict(color=line_color),
                     hovertemplate='Model: ' + model.title() + '<br>Threads: %{x}<br>' + selected_metric.replace('_', ' ').title() + ': %{y:.2f}<extra></extra>'
                 ))
 
@@ -381,11 +405,19 @@ def update_charts(selected_models, selected_executables, selected_runs, selected
                         # Sort by thread count to ensure proper line plotting
                         exec_model_data_sorted = exec_model_data.sort_values('threads')
 
+                        # Get line style for this model
+                        line_style = model_line_styles.get(model, model_line_styles['default'])
+
+                        # Get color for this executable
+                        line_color = executable_colors.get(executable, executable_colors['default'])
+
                         speedup_fig.add_trace(go.Scatter(
                             x=exec_model_data_sorted['threads'],
                             y=exec_model_data_sorted['speedup'],
                             mode='lines+markers',
                             name=f'{executable.upper()} - {model.title()}',
+                            line=dict(dash=line_style, color=line_color),
+                            marker=dict(color=line_color),
                             hovertemplate='Model: ' + model.title() + '<br>Threads: %{x}<br>Speedup: %{y:.2f}<extra></extra>'
                         ))
 
@@ -419,7 +451,8 @@ def update_charts(selected_models, selected_executables, selected_runs, selected
         y=selected_metric,
         color='executable',
         title=f'Maximum {selected_metric.replace("_", " ").title()} by Model and Executable',
-        barmode='group'
+        barmode='group',
+        color_discrete_map=executable_colors
     )
     comparison_fig.update_layout(
         xaxis_title="Model",
