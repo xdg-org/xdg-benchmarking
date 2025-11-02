@@ -9,13 +9,17 @@ import os
 import json
 from datetime import datetime
 import glob
+import dash_bootstrap_components as dbc
+from model_info import model_info_manager
+from carousel_component import create_model_selector
 
 # Initialize the Dash app with external stylesheets for better integration
 app = dash.Dash(
     __name__,
     title="XDG Benchmarking Dashboard",
     external_stylesheets=[
-        'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css'
+        'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css',
+        dbc.themes.BOOTSTRAP
     ],
     suppress_callback_exceptions=True
 )
@@ -268,7 +272,10 @@ app.layout = html.Div([
     html.Div([
         html.H3("Raw Data", className="chart-title"),
         html.Div(id='data-table', className="table-container")
-    ], className="table-section")
+    ], className="table-section"),
+
+    # Model Information Section
+    html.Div(id='model-info-section', className="model-info-section")
 ], className="dashboard-container")
 
 # Callbacks
@@ -299,6 +306,32 @@ def refresh_data(n_clicks):
     run_value = [run['id'] for run in data_manager.runs] if data_manager.runs else None
 
     return last_updated, model_options, model_value, exec_options, exec_value, run_options, run_value
+
+@callback(
+    Output('model-info-section', 'children'),
+    Input('refresh-button', 'n_clicks')
+)
+def update_model_info_section(n_clicks):
+    """Update the model information section"""
+    model_selector = create_model_selector(model_info_manager, data_manager)
+    return model_selector
+
+@callback(
+    Output('model-info-display', 'children'),
+    Input('model-info-selector', 'value')
+)
+def update_model_info(selected_model):
+    """Update the model information display when a model is selected"""
+    try:
+        if not selected_model:
+            return "Please select a model to view information."
+
+        from carousel_component import create_model_info_section
+        from model_info import model_info_manager
+        return create_model_info_section(selected_model, model_info_manager)
+    except Exception as e:
+        print(f"Error in update_model_info callback: {e}")
+        return f"Error loading model information: {str(e)}"
 
 @callback(
     Output('scaling-chart', 'figure'),

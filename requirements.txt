@@ -4,3 +4,4 @@ pandas==2.1.4
 numpy==1.24.3
 gunicorn==21.2.0
 psutil==5.9.6
+dash-bootstrap-components==1.5.0
