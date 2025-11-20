@@ -54,6 +54,12 @@ def get_config(config_file: str = 'scaling_config.i') -> MyConfigParser:
     return config
 
 
+def get_software_versions(config: MyConfigParser) -> Dict[str, str]:
+    if not config.has_section('software_versions'):
+        return {}
+    return {name: config['software_versions'][name] for name in config['software_versions']}
+
+
 def get_executable_config(config: MyConfigParser) -> tuple[str, str]:
     if not config.has_option('options', 'executable_label'):
         raise ValueError("Missing 'executable_label' in [options] section of scaling_config.i.")
@@ -282,6 +288,7 @@ def main():
     architecture = collect_architecture()
 
     exe_label, exe_path = get_executable_config(config)
+    software_versions = get_software_versions(config)
 
     # Build config.json structure
     config_json = {
@@ -294,12 +301,14 @@ def main():
         "max_threads": config.getint('options', 'max_threads'),
         "n_repeats": config.getint('options', 'n_repeats'),
         "architecture": architecture,
+        "software_versions": software_versions,
     }
 
     # Generate results.json
     results_json = {
         "run_id": run_id,
         "date": date_iso,
+        "software_versions": software_versions,
         "results": generate_results(config, args.skip_runs, args.store_raw_csv, raw_dir if args.store_raw_csv else Path('.')),
     }
 

@@ -18,6 +18,9 @@ n_repeats = <int>                      # Required; runs averaged per thread coun
 output = <bool>                        # Optional (default true); pass OpenMC stdout through
 results_dir = <path>                   # Optional (default results); root for study artifacts
 
+[software_versions]
+<component_name> = <version_or_commit> # Optional; copied verbatim into JSON metadata
+
 [<custom_section>]
 ...                                    # Ignored by scaling_study.py but preserved for user notes
 ```

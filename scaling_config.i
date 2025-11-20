@@ -12,3 +12,7 @@ output = True
 particles_per_thread = 500
 max_threads = 80
 n_repeats = 1
+
+[software_versions]
+OpenMC = 0.13.4
+XDG = c0ffee42
