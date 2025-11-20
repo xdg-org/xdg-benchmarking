@@ -54,15 +54,23 @@ def get_config(config_file: str = 'scaling_config.i') -> MyConfigParser:
     return config
 
 
-def gather_scaling_data(model_name, openmc_exe, config, results_dir):  # type: ignore[override]
+def get_executable_config(config: MyConfigParser) -> tuple[str, str]:
+    if not config.has_option('options', 'executable_label'):
+        raise ValueError("Missing 'executable_label' in [options] section of scaling_config.i.")
+    if not config.has_option('options', 'executable_path'):
+        raise ValueError("Missing 'executable_path' in [options] section of scaling_config.i.")
+    label = config.get('options', 'executable_label')
+    path = config.get('options', 'executable_path')
+    return label, path
+
+
+def gather_scaling_data(model_name, executable_label, executable_path, config, results_dir):  # type: ignore[override]
     if np is None:
         raise ImportError("NumPy is required to gather scaling data.")
     if openmc is None:
         raise ImportError("OpenMC is required to gather scaling data.")
 
     max_threads = config.getint('options', 'max_threads')
-    if openmc_exe in config['exec_max_threads']:
-        max_threads = min(config.getint('exec_max_threads', openmc_exe), max_threads)
 
     input_path = config['models'][model_name]
 
@@ -73,7 +81,7 @@ def gather_scaling_data(model_name, openmc_exe, config, results_dir):  # type: i
     inactive_time = np.zeros(len(threads), dtype=float)
     active_time = np.zeros(len(threads), dtype=float)
 
-    executable = config['executables'][openmc_exe]
+    executable = executable_path
     results = {}
     flux_results = None
     energy_divs = None
@@ -107,14 +115,14 @@ def gather_scaling_data(model_name, openmc_exe, config, results_dir):  # type: i
         particles_per_thread = config.getint('options', 'particles_per_thread')
         output = config.getboolean('options', 'output')
 
-        print(f'Running {openmc_exe} with {n_threads} threads')
+        print(f'Running {executable_label} with {n_threads} threads')
         threads[i] = n_threads
         n_runs = config.getint('options', 'n_repeats')
         for _ in range(n_runs):
             try:
                 statepoint = model.run(openmc_exec=executable, threads=n_threads, particles=particles_per_thread*n_threads, output=output, event_based=True)
             except Exception as e:
-                print(f"Error running {openmc_exe} for model {Path(input_path) / 'model.xml'} with {n_threads} threads: {e}")
+                print(f"Error running {executable_label} for model {Path(input_path) / 'model.xml'} with {n_threads} threads: {e}")
                 raise e
 
             with openmc.StatePoint(statepoint, autolink=False) as sp:
@@ -223,32 +231,32 @@ def compute_max_performance(entries):
 
 def generate_results(config: MyConfigParser, skip_runs: bool, store_raw_csv: bool, raw_dir: Path) -> Dict[str, Any]:
     results: Dict[str, Any] = {}
+    exe_label, exe_path = get_executable_config(config)
+    exe_key = normalize_identifier(exe_label)
     for model_name in config['models']:
         model_key = normalize_identifier(model_name)
         results[model_key] = {}
-        for exe_name in config['executables']:
-            exe_key = normalize_identifier(exe_name)
-            if skip_runs:
-                # Produce placeholder thread scaling (minimal) for dry-run
-                threads = [1]
-                entries = [{"threads": 1, "active_rate": None, "inactive_rate": None}]
-            else:
-                data = gather_scaling_data(model_name, exe_name, config, results_dir=None)
-                threads = data['threads']
-                inactive_rates = data.get('inactive_rates')
-                active_rates = data['active_rates']
-                entries = build_scaling_entries(threads, inactive_rates, active_rates)
-                if store_raw_csv:
-                    # Write a raw CSV for traceability
-                    raw_csv = raw_dir / f"{model_key}_{exe_key}_scaling.csv"
-                    with open(raw_csv, 'w') as f:
-                        f.write("threads,inactive_rate,active_rate\n")
-                        for e in entries:
-                            f.write(f"{e['threads']},{e['inactive_rate'] if e['inactive_rate'] is not None else ''},{e['active_rate'] if e['active_rate'] is not None else ''}\n")
-            results[model_key][exe_key] = {
-                "scaling": entries,
-                "max_performance": compute_max_performance(entries)
-            }
+        if skip_runs:
+            # Produce placeholder thread scaling (minimal) for dry-run
+            threads = [1]
+            entries = [{"threads": 1, "active_rate": None, "inactive_rate": None}]
+        else:
+            data = gather_scaling_data(model_name, exe_label, exe_path, config, results_dir=None)
+            threads = data['threads']
+            inactive_rates = data.get('inactive_rates')
+            active_rates = data['active_rates']
+            entries = build_scaling_entries(threads, inactive_rates, active_rates)
+            if store_raw_csv:
+                # Write a raw CSV for traceability
+                raw_csv = raw_dir / f"{model_key}_{exe_key}_scaling.csv"
+                with open(raw_csv, 'w') as f:
+                    f.write("threads,inactive_rate,active_rate\n")
+                    for e in entries:
+                        f.write(f"{e['threads']},{e['inactive_rate'] if e['inactive_rate'] is not None else ''},{e['active_rate'] if e['active_rate'] is not None else ''}\n")
+        results[model_key][exe_key] = {
+            "scaling": entries,
+            "max_performance": compute_max_performance(entries)
+        }
     return results
 
 
@@ -273,13 +281,15 @@ def main():
 
     architecture = collect_architecture()
 
+    exe_label, exe_path = get_executable_config(config)
+
     # Build config.json structure
     config_json = {
         "run_id": run_id,
         "date": date_iso,
         "config_file": args.config,
         "models": [normalize_identifier(m) for m in config['models']],
-        "executables": [normalize_identifier(e) for e in config['executables']],
+        "executables": [normalize_identifier(exe_label)],
         "particles_per_thread": config.getint('options', 'particles_per_thread'),
         "max_threads": config.getint('options', 'max_threads'),
         "n_repeats": config.getint('options', 'n_repeats'),
