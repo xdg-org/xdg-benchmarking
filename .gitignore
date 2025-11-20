@@ -1,0 +1,9 @@
+*.png
+*.html
+*.i
+*.h5
+*.xml
+*.out
+__pycache__
+*.cache
+*~
