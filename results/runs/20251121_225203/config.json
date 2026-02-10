@@ -1,0 +1,27 @@
+{
+  "run_id": "20251121_225203",
+  "date": "2025-11-22T04:52:03Z",
+  "config_file": "scaling_config_xdg.i",
+  "models": [
+    "tokamak",
+    "atr",
+    "msre"
+  ],
+  "executables": [
+    "xdg"
+  ],
+  "particles_per_thread": 5000,
+  "max_threads": 80,
+  "n_repeats": 1,
+  "architecture": {
+    "machine": "x86_64",
+    "processor": "x86_64",
+    "cpu_count": 96,
+    "os": "Linux 6.8.0-51-generic",
+    "python_version": "3.12.0"
+  },
+  "software_versions": {
+    "OpenMC": "18c3112415aa19947737ffcd70641a194faa98dd",
+    "XDG": "c904a7efc2486afb2aee479f573a5eb55b4b4321"
+  }
+}

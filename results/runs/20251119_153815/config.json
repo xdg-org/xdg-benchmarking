@@ -1,0 +1,25 @@
+{
+  "run_id": "20251119_153815",
+  "date": "2025-11-19T21:38:15Z",
+  "config_file": "scaling_config.i",
+  "models": [
+    "tokamak",
+    "atr",
+    "msre"
+  ],
+  "executables": [
+    "double-down",
+    "xdg",
+    "moab"
+  ],
+  "particles_per_thread": 500,
+  "max_threads": 80,
+  "n_repeats": 1,
+  "architecture": {
+    "machine": "x86_64",
+    "processor": "x86_64",
+    "cpu_count": 96,
+    "os": "Linux 6.8.0-51-generic",
+    "python_version": "3.12.0"
+  }
+}

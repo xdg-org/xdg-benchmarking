@@ -1,0 +1,24 @@
+XDG Benchmarking Run Summary
+============================
+
+Run Date: 2025-07-15 17:10:58
+Results Directory: results/20250715_171058
+
+Configuration:
+  Config File: scaling_config.i
+
+Models:
+  Tokamak: /home/pshriwise/internal/xdg/benchmarking/xdg-benchmark-models/tokamak
+  ATR: /home/pshriwise/internal/xdg/benchmarking/xdg-benchmark-models/atr
+  MSRE: /home/pshriwise/internal/xdg/benchmarking/xdg-benchmark-models/msre
+
+Executables:
+  double-down: /home/pshriwise/internal/xdg/soft/rt-double-down/opt/bin/openmc
+  xdg: /home/pshriwise/internal/xdg/soft/rt-xdg/opt/bin/openmc
+  moab: /home/pshriwise/internal/xdg/soft/rt-moab/opt/bin/openmc
+
+Options:
+  output: True
+  particles_per_thread: 1000
+  max_threads: 20
+  n_repeats: 1

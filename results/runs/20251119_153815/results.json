@@ -1,0 +1,663 @@
+{
+  "run_id": "20251119_153815",
+  "date": "2025-11-19T21:38:15Z",
+  "results": {
+    "tokamak": {
+      "double-down": {
+        "scaling": [
+          {
+            "threads": 1,
+            "active_rate": 5159.133365475423,
+            "inactive_rate": null
+          },
+          {
+            "threads": 5,
+            "active_rate": 15751.956000396507,
+            "inactive_rate": null
+          },
+          {
+            "threads": 10,
+            "active_rate": 29973.602212563073,
+            "inactive_rate": null
+          },
+          {
+            "threads": 15,
+            "active_rate": 48226.07699700092,
+            "inactive_rate": null
+          },
+          {
+            "threads": 20,
+            "active_rate": 50047.327004545215,
+            "inactive_rate": null
+          },
+          {
+            "threads": 25,
+            "active_rate": 57018.95806185296,
+            "inactive_rate": null
+          },
+          {
+            "threads": 30,
+            "active_rate": 61323.439144744465,
+            "inactive_rate": null
+          },
+          {
+            "threads": 35,
+            "active_rate": 64854.245523530575,
+            "inactive_rate": null
+          },
+          {
+            "threads": 40,
+            "active_rate": 68669.9126371277,
+            "inactive_rate": null
+          },
+          {
+            "threads": 45,
+            "active_rate": 71382.55805036314,
+            "inactive_rate": null
+          },
+          {
+            "threads": 50,
+            "active_rate": 70571.68634326383,
+            "inactive_rate": null
+          },
+          {
+            "threads": 55,
+            "active_rate": 70359.9663364353,
+            "inactive_rate": null
+          },
+          {
+            "threads": 60,
+            "active_rate": 75136.0969427001,
+            "inactive_rate": null
+          },
+          {
+            "threads": 65,
+            "active_rate": 79483.41769347854,
+            "inactive_rate": null
+          },
+          {
+            "threads": 70,
+            "active_rate": 81305.16579019287,
+            "inactive_rate": null
+          },
+          {
+            "threads": 75,
+            "active_rate": 83302.39334351411,
+            "inactive_rate": null
+          }
+        ],
+        "max_performance": {
+          "threads": 75,
+          "active_rate": 83302.39334351411,
+          "inactive_rate": null
+        }
+      },
+      "xdg": {
+        "scaling": [
+          {
+            "threads": 1,
+            "active_rate": 5578.832079448424,
+            "inactive_rate": null
+          },
+          {
+            "threads": 5,
+            "active_rate": 18157.12599585463,
+            "inactive_rate": null
+          },
+          {
+            "threads": 10,
+            "active_rate": 33198.80169642371,
+            "inactive_rate": null
+          },
+          {
+            "threads": 15,
+            "active_rate": 45292.01273362594,
+            "inactive_rate": null
+          },
+          {
+            "threads": 20,
+            "active_rate": 53988.57338538881,
+            "inactive_rate": null
+          },
+          {
+            "threads": 25,
+            "active_rate": 63161.63454387204,
+            "inactive_rate": null
+          },
+          {
+            "threads": 30,
+            "active_rate": 67548.56457413423,
+            "inactive_rate": null
+          },
+          {
+            "threads": 35,
+            "active_rate": 71109.11763584988,
+            "inactive_rate": null
+          },
+          {
+            "threads": 40,
+            "active_rate": 72630.43380396096,
+            "inactive_rate": null
+          },
+          {
+            "threads": 45,
+            "active_rate": 74401.1327828406,
+            "inactive_rate": null
+          },
+          {
+            "threads": 50,
+            "active_rate": 79900.2051295864,
+            "inactive_rate": null
+          },
+          {
+            "threads": 55,
+            "active_rate": 74850.36679504991,
+            "inactive_rate": null
+          },
+          {
+            "threads": 60,
+            "active_rate": 80412.10315115347,
+            "inactive_rate": null
+          },
+          {
+            "threads": 65,
+            "active_rate": 85645.5102688719,
+            "inactive_rate": null
+          },
+          {
+            "threads": 70,
+            "active_rate": 87428.34163291747,
+            "inactive_rate": null
+          },
+          {
+            "threads": 75,
+            "active_rate": 91475.21636496324,
+            "inactive_rate": null
+          }
+        ],
+        "max_performance": {
+          "threads": 75,
+          "active_rate": 91475.21636496324,
+          "inactive_rate": null
+        }
+      },
+      "moab": {
+        "scaling": [
+          {
+            "threads": 1,
+            "active_rate": 894.666281734471,
+            "inactive_rate": null
+          },
+          {
+            "threads": 5,
+            "active_rate": 1240.0318104745286,
+            "inactive_rate": null
+          },
+          {
+            "threads": 10,
+            "active_rate": 1428.404473799722,
+            "inactive_rate": null
+          },
+          {
+            "threads": 15,
+            "active_rate": 1417.3776885461123,
+            "inactive_rate": null
+          },
+          {
+            "threads": 20,
+            "active_rate": 1525.5106909021372,
+            "inactive_rate": null
+          },
+          {
+            "threads": 25,
+            "active_rate": 1432.4395174901322,
+            "inactive_rate": null
+          }
+        ],
+        "max_performance": {
+          "threads": 20,
+          "active_rate": 1525.5106909021372,
+          "inactive_rate": null
+        }
+      }
+    },
+    "atr": {
+      "double-down": {
+        "scaling": [
+          {
+            "threads": 1,
+            "active_rate": 641.7136788631875,
+            "inactive_rate": 684.6116589081809
+          },
+          {
+            "threads": 5,
+            "active_rate": 2186.331294966527,
+            "inactive_rate": 2262.135980446347
+          },
+          {
+            "threads": 10,
+            "active_rate": 4030.392437460879,
+            "inactive_rate": 4215.564741018193
+          },
+          {
+            "threads": 15,
+            "active_rate": 5511.92083844553,
+            "inactive_rate": 5806.4997431669035
+          },
+          {
+            "threads": 20,
+            "active_rate": 7040.818816451526,
+            "inactive_rate": 7250.716355875738
+          },
+          {
+            "threads": 25,
+            "active_rate": 8181.864550914027,
+            "inactive_rate": 8390.451658548427
+          },
+          {
+            "threads": 30,
+            "active_rate": 9215.46976117967,
+            "inactive_rate": 9116.291846393215
+          },
+          {
+            "threads": 35,
+            "active_rate": 9993.55102561088,
+            "inactive_rate": 9879.582508742353
+          },
+          {
+            "threads": 40,
+            "active_rate": 10403.60855787848,
+            "inactive_rate": 10462.701617590243
+          },
+          {
+            "threads": 45,
+            "active_rate": 10935.662929527667,
+            "inactive_rate": 11593.963772991898
+          },
+          {
+            "threads": 50,
+            "active_rate": 11009.005385869563,
+            "inactive_rate": 12023.108304896003
+          },
+          {
+            "threads": 55,
+            "active_rate": 11443.944639534788,
+            "inactive_rate": 12074.048880462873
+          },
+          {
+            "threads": 60,
+            "active_rate": 12431.95907781777,
+            "inactive_rate": 12201.011416132309
+          },
+          {
+            "threads": 65,
+            "active_rate": 13165.728612945582,
+            "inactive_rate": 12963.556131267145
+          },
+          {
+            "threads": 70,
+            "active_rate": 13753.096644588111,
+            "inactive_rate": 13336.382568924419
+          },
+          {
+            "threads": 75,
+            "active_rate": 14498.201350782047,
+            "inactive_rate": 13709.354095058578
+          }
+        ],
+        "max_performance": {
+          "threads": 75,
+          "active_rate": 14498.201350782047,
+          "inactive_rate": 13709.354095058578
+        }
+      },
+      "xdg": {
+        "scaling": [
+          {
+            "threads": 1,
+            "active_rate": 653.2174378406942,
+            "inactive_rate": 705.8095009784282
+          },
+          {
+            "threads": 5,
+            "active_rate": 2169.59824647585,
+            "inactive_rate": 2423.9162648903775
+          },
+          {
+            "threads": 10,
+            "active_rate": 4122.769502438937,
+            "inactive_rate": 4302.514772195274
+          },
+          {
+            "threads": 15,
+            "active_rate": 5746.57466081074,
+            "inactive_rate": 6176.217356202874
+          },
+          {
+            "threads": 20,
+            "active_rate": 7554.830168497398,
+            "inactive_rate": 7827.118799059076
+          },
+          {
+            "threads": 25,
+            "active_rate": 8981.696620513045,
+            "inactive_rate": 9106.83362471971
+          },
+          {
+            "threads": 30,
+            "active_rate": 10078.285841347904,
+            "inactive_rate": 9955.205481754734
+          },
+          {
+            "threads": 35,
+            "active_rate": 11218.120776595239,
+            "inactive_rate": 10729.534099842927
+          },
+          {
+            "threads": 40,
+            "active_rate": 11988.70613002483,
+            "inactive_rate": 11288.781426372669
+          },
+          {
+            "threads": 45,
+            "active_rate": 12096.196013588265,
+            "inactive_rate": 11986.638559843943
+          },
+          {
+            "threads": 50,
+            "active_rate": 12049.959262591861,
+            "inactive_rate": 12593.668237312262
+          },
+          {
+            "threads": 55,
+            "active_rate": 12785.081269090166,
+            "inactive_rate": 12594.497577844179
+          },
+          {
+            "threads": 60,
+            "active_rate": 13501.457738350493,
+            "inactive_rate": 13279.051348806774
+          },
+          {
+            "threads": 65,
+            "active_rate": 13904.09157032299,
+            "inactive_rate": 13564.725566344472
+          },
+          {
+            "threads": 70,
+            "active_rate": 14377.84127787437,
+            "inactive_rate": 14024.3466888261
+          },
+          {
+            "threads": 75,
+            "active_rate": 15099.98880021348,
+            "inactive_rate": 14597.720528942944
+          }
+        ],
+        "max_performance": {
+          "threads": 75,
+          "active_rate": 15099.98880021348,
+          "inactive_rate": 14597.720528942944
+        }
+      },
+      "moab": {
+        "scaling": [
+          {
+            "threads": 1,
+            "active_rate": 295.8550591305702,
+            "inactive_rate": 316.01736751309846
+          },
+          {
+            "threads": 5,
+            "active_rate": 551.5116802837896,
+            "inactive_rate": 548.2304847492339
+          },
+          {
+            "threads": 10,
+            "active_rate": 673.0673869649906,
+            "inactive_rate": 678.8685974878939
+          },
+          {
+            "threads": 15,
+            "active_rate": 743.1067090100616,
+            "inactive_rate": 735.2761473394289
+          },
+          {
+            "threads": 20,
+            "active_rate": 770.3555275891813,
+            "inactive_rate": 766.5113607557918
+          },
+          {
+            "threads": 25,
+            "active_rate": 783.7442660581524,
+            "inactive_rate": 778.2737351257139
+          }
+        ],
+        "max_performance": {
+          "threads": 25,
+          "active_rate": 783.7442660581524,
+          "inactive_rate": 778.2737351257139
+        }
+      }
+    },
+    "msre": {
+      "double-down": {
+        "scaling": [
+          {
+            "threads": 1,
+            "active_rate": 494.07485795801887,
+            "inactive_rate": 642.0638645506262
+          },
+          {
+            "threads": 5,
+            "active_rate": 1388.8965193320444,
+            "inactive_rate": 1873.2374917306288
+          },
+          {
+            "threads": 10,
+            "active_rate": 2413.773542560421,
+            "inactive_rate": 3409.6127055255774
+          },
+          {
+            "threads": 15,
+            "active_rate": 3413.9408170390375,
+            "inactive_rate": 4790.259631688817
+          },
+          {
+            "threads": 20,
+            "active_rate": 4276.32582142459,
+            "inactive_rate": 6033.674344877843
+          },
+          {
+            "threads": 25,
+            "active_rate": 5106.975059732177,
+            "inactive_rate": 7152.089709254904
+          },
+          {
+            "threads": 30,
+            "active_rate": 5720.513309585612,
+            "inactive_rate": 7791.061290387814
+          },
+          {
+            "threads": 35,
+            "active_rate": 6424.765328832527,
+            "inactive_rate": 8358.77360390457
+          },
+          {
+            "threads": 40,
+            "active_rate": 6673.222108629486,
+            "inactive_rate": 8964.260618466737
+          },
+          {
+            "threads": 45,
+            "active_rate": 7243.630313924905,
+            "inactive_rate": 9640.201578287684
+          },
+          {
+            "threads": 50,
+            "active_rate": 6734.218812288308,
+            "inactive_rate": 10025.438111962298
+          },
+          {
+            "threads": 55,
+            "active_rate": 7324.002112077513,
+            "inactive_rate": 10367.491348434218
+          },
+          {
+            "threads": 60,
+            "active_rate": 7613.089241278438,
+            "inactive_rate": 10597.931940022298
+          },
+          {
+            "threads": 65,
+            "active_rate": 7958.155890174327,
+            "inactive_rate": 10804.791437330688
+          },
+          {
+            "threads": 70,
+            "active_rate": 8504.013329260468,
+            "inactive_rate": 11167.344710751284
+          },
+          {
+            "threads": 75,
+            "active_rate": 8189.589177804895,
+            "inactive_rate": 11430.272192460567
+          }
+        ],
+        "max_performance": {
+          "threads": 70,
+          "active_rate": 8504.013329260468,
+          "inactive_rate": 11167.344710751284
+        }
+      },
+      "xdg": {
+        "scaling": [
+          {
+            "threads": 1,
+            "active_rate": 519.7881527369701,
+            "inactive_rate": 687.9043726675294
+          },
+          {
+            "threads": 5,
+            "active_rate": 1446.3903426706077,
+            "inactive_rate": 1989.0347214528615
+          },
+          {
+            "threads": 10,
+            "active_rate": 2602.7256039235003,
+            "inactive_rate": 3648.188664966592
+          },
+          {
+            "threads": 15,
+            "active_rate": 3674.4872081135077,
+            "inactive_rate": 5076.4671908006685
+          },
+          {
+            "threads": 20,
+            "active_rate": 4702.245180235039,
+            "inactive_rate": 6415.789893320767
+          },
+          {
+            "threads": 25,
+            "active_rate": 5661.759260522193,
+            "inactive_rate": 7680.967134290705
+          },
+          {
+            "threads": 30,
+            "active_rate": 6505.511108085013,
+            "inactive_rate": 8395.771723996675
+          },
+          {
+            "threads": 35,
+            "active_rate": 6848.225421749211,
+            "inactive_rate": 9087.409108100193
+          },
+          {
+            "threads": 40,
+            "active_rate": 7969.453988193228,
+            "inactive_rate": 9577.976388220126
+          },
+          {
+            "threads": 45,
+            "active_rate": 7971.490522081255,
+            "inactive_rate": 10343.056148337684
+          },
+          {
+            "threads": 50,
+            "active_rate": 7439.952809281647,
+            "inactive_rate": 10774.458187715134
+          },
+          {
+            "threads": 55,
+            "active_rate": 8047.576115357034,
+            "inactive_rate": 10979.55536960208
+          },
+          {
+            "threads": 60,
+            "active_rate": 8154.284130098108,
+            "inactive_rate": 11070.489768565862
+          },
+          {
+            "threads": 65,
+            "active_rate": 9410.816798677584,
+            "inactive_rate": 11620.261845580046
+          },
+          {
+            "threads": 70,
+            "active_rate": 9672.342160046164,
+            "inactive_rate": 11923.459307604551
+          },
+          {
+            "threads": 75,
+            "active_rate": 9061.885795998258,
+            "inactive_rate": 12012.565678018129
+          }
+        ],
+        "max_performance": {
+          "threads": 70,
+          "active_rate": 9672.342160046164,
+          "inactive_rate": 11923.459307604551
+        }
+      },
+      "moab": {
+        "scaling": [
+          {
+            "threads": 1,
+            "active_rate": 41.8460630901856,
+            "inactive_rate": 46.783718058743816
+          },
+          {
+            "threads": 5,
+            "active_rate": 54.26002766277203,
+            "inactive_rate": 64.80708044130655
+          },
+          {
+            "threads": 10,
+            "active_rate": 62.328022767072916,
+            "inactive_rate": 76.5151617609583
+          },
+          {
+            "threads": 15,
+            "active_rate": 69.981832514433,
+            "inactive_rate": 78.76319195846767
+          },
+          {
+            "threads": 20,
+            "active_rate": 72.47702290716335,
+            "inactive_rate": 80.8546075186856
+          },
+          {
+            "threads": 25,
+            "active_rate": 69.84600219071164,
+            "inactive_rate": 77.19346513884975
+          }
+        ],
+        "max_performance": {
+          "threads": 20,
+          "active_rate": 72.47702290716335,
+          "inactive_rate": 80.8546075186856
+        }
+      }
+    }
+  }
+}

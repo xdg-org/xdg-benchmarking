@@ -1,0 +1,93 @@
+{
+  "run_id": "20250715_171058",
+  "date": "2025-07-15T17:10:58Z",
+  "results": {
+    "atr": {
+      "moab": {
+        "scaling": [
+          {"threads": 1, "inactive_rate": 345.05, "active_rate": 325.54},
+          {"threads": 5, "inactive_rate": 561.29, "active_rate": 556.03},
+          {"threads": 10, "inactive_rate": 687.74, "active_rate": 713.93},
+          {"threads": 15, "inactive_rate": 762.14, "active_rate": 762.76}
+        ],
+        "max_performance": {"threads": 15, "active_rate": 762.76, "inactive_rate": 762.14}
+      },
+      "xdg": {
+        "scaling": [
+          {"threads": 1, "inactive_rate": 699.70, "active_rate": 645.56},
+          {"threads": 5, "inactive_rate": 2358.76, "active_rate": 2229.78},
+          {"threads": 10, "inactive_rate": 4362.48, "active_rate": 4201.33},
+          {"threads": 15, "inactive_rate": 6251.09, "active_rate": 5938.64}
+        ],
+        "max_performance": {"threads": 15, "active_rate": 5938.64, "inactive_rate": 6251.09}
+      },
+      "double-down": {
+        "scaling": [
+          {"threads": 1, "inactive_rate": 687.58, "active_rate": 664.58},
+          {"threads": 5, "inactive_rate": 2315.56, "active_rate": 2113.22},
+          {"threads": 10, "inactive_rate": 4372.79, "active_rate": 3894.79},
+          {"threads": 15, "inactive_rate": 5986.24, "active_rate": 5800.19}
+        ],
+        "max_performance": {"threads": 15, "active_rate": 5800.19, "inactive_rate": 5986.24}
+      }
+    },
+    "tokamak": {
+      "moab": {
+        "scaling": [
+          {"threads": 1, "inactive_rate": null, "active_rate": 975.95},
+          {"threads": 5, "inactive_rate": null, "active_rate": 1235.49},
+          {"threads": 10, "inactive_rate": null, "active_rate": 1445.85},
+          {"threads": 15, "inactive_rate": null, "active_rate": 1452.28}
+        ],
+        "max_performance": {"threads": 15, "active_rate": 1452.28, "inactive_rate": null}
+      },
+      "xdg": {
+        "scaling": [
+          {"threads": 1, "inactive_rate": null, "active_rate": 6353.16},
+          {"threads": 5, "inactive_rate": null, "active_rate": 19105.36},
+          {"threads": 10, "inactive_rate": null, "active_rate": 35258.99},
+          {"threads": 15, "inactive_rate": null, "active_rate": 48675.84}
+        ],
+        "max_performance": {"threads": 15, "active_rate": 48675.84, "inactive_rate": null}
+      },
+      "double-down": {
+        "scaling": [
+          {"threads": 1, "inactive_rate": null, "active_rate": 5704.18},
+          {"threads": 5, "inactive_rate": null, "active_rate": 17626.61},
+          {"threads": 10, "inactive_rate": null, "active_rate": 32330.96},
+          {"threads": 15, "inactive_rate": null, "active_rate": 43616.68}
+        ],
+        "max_performance": {"threads": 15, "active_rate": 43616.68, "inactive_rate": null}
+      }
+    },
+    "msre": {
+      "moab": {
+        "scaling": [
+          {"threads": 1, "inactive_rate": 46.68, "active_rate": 41.15},
+          {"threads": 5, "inactive_rate": 64.88, "active_rate": 59.15},
+          {"threads": 10, "inactive_rate": 75.35, "active_rate": 68.16},
+          {"threads": 15, "inactive_rate": 81.59, "active_rate": 74.05}
+        ],
+        "max_performance": {"threads": 15, "active_rate": 74.05, "inactive_rate": 81.59}
+      },
+      "xdg": {
+        "scaling": [
+          {"threads": 1, "inactive_rate": 711.60, "active_rate": 515.70},
+          {"threads": 5, "inactive_rate": 1976.19, "active_rate": 1426.95},
+          {"threads": 10, "inactive_rate": 3642.40, "active_rate": 2531.55},
+          {"threads": 15, "inactive_rate": 5173.09, "active_rate": 3695.01}
+        ],
+        "max_performance": {"threads": 15, "active_rate": 3695.01, "inactive_rate": 5173.09}
+      },
+      "double-down": {
+        "scaling": [
+          {"threads": 1, "inactive_rate": 677.07, "active_rate": 496.47},
+          {"threads": 5, "inactive_rate": 1853.43, "active_rate": 1359.71},
+          {"threads": 10, "inactive_rate": 3466.62, "active_rate": 2456.27},
+          {"threads": 15, "inactive_rate": 4842.08, "active_rate": 3472.90}
+        ],
+        "max_performance": {"threads": 15, "active_rate": 3472.90, "inactive_rate": 4842.08}
+      }
+    }
+  }
+}

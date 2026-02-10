@@ -1,0 +1,61 @@
+{
+  "run_id": "20251120_132706",
+  "date": "2025-11-20T19:27:06Z",
+  "software_versions": {
+    "OpenMC": "0.13.4",
+    "XDG": "c904a7efc2486afb2aee479f573a5eb55b4b4321"
+  },
+  "results": {
+    "tokamak": {
+      "xdg": {
+        "scaling": [
+          {
+            "threads": 1,
+            "active_rate": null,
+            "inactive_rate": null
+          }
+        ],
+        "max_performance": {
+          "threads": null,
+          "active_rate": null,
+          "inactive_rate": null
+        },
+        "flux": null
+      }
+    },
+    "atr": {
+      "xdg": {
+        "scaling": [
+          {
+            "threads": 1,
+            "active_rate": null,
+            "inactive_rate": null
+          }
+        ],
+        "max_performance": {
+          "threads": null,
+          "active_rate": null,
+          "inactive_rate": null
+        },
+        "flux": null
+      }
+    },
+    "msre": {
+      "xdg": {
+        "scaling": [
+          {
+            "threads": 1,
+            "active_rate": null,
+            "inactive_rate": null
+          }
+        ],
+        "max_performance": {
+          "threads": null,
+          "active_rate": null,
+          "inactive_rate": null
+        },
+        "flux": null
+      }
+    }
+  }
+}
