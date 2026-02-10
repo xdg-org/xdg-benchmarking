@@ -36,7 +36,17 @@ results/
   "executables": ["string"],    // Array of executable identifiers
   "particles_per_thread": "number",  // Number of particles per thread
   "max_threads": "number",      // Maximum number of threads tested
-  "n_repeats": "number"         // Number of repeat runs
+  "n_repeats": "number",        // Number of repeat runs
+  "architecture": {             // Host machine metadata
+    "machine": "string",        // e.g., "x86_64"
+    "processor": "string",      // CPU identifier
+    "cpu_count": "number",      // Logical CPU count
+    "os": "string",             // OS name and version
+    "python_version": "string"  // Interpreter version
+  },
+  "software_versions": {        // Optional; component -> version/commit map
+    "{component}": "string"
+  }
 }
 ```
 
@@ -47,10 +57,21 @@ results/
   "date": "2025-07-15T17:10:58Z",
   "config_file": "scaling_config.i",
   "models": ["tokamak", "atr", "msre"],
-  "executables": ["moab", "xdg", "double-down"],
+  "executables": ["xdg"],
   "particles_per_thread": 1000,
   "max_threads": 20,
-  "n_repeats": 1
+  "n_repeats": 1,
+  "architecture": {
+    "machine": "x86_64",
+    "processor": "Intel(R) Xeon(R)",
+    "cpu_count": 64,
+    "os": "Linux 6.8.0",
+    "python_version": "3.11.7"
+  },
+  "software_versions": {
+    "OpenMC": "0.13.4",
+    "XDG": "c0ffee42"
+  }
 }
 ```
 
@@ -65,6 +86,9 @@ results/
 {
   "run_id": "string",           // Must match config.json run_id
   "date": "string",             // Must match config.json date
+  "software_versions": {        // Optional mirror of config metadata
+    "{component}": "string"
+  },
   "results": {
     "{model_id}": {             // Model identifier (e.g., "tokamak")
       "{executable_id}": {      // Executable identifier (e.g., "moab")
@@ -91,6 +115,10 @@ results/
 {
   "run_id": "20250715_171058",
   "date": "2025-07-15T17:10:58Z",
+  "software_versions": {
+    "OpenMC": "0.13.4",
+    "XDG": "c0ffee42"
+  },
   "results": {
     "atr": {
       "moab": {
@@ -145,7 +173,7 @@ results/
 2. **Completeness**: All models and executables listed in `config.json` must have corresponding data in `results.json`
 3. **Thread Counts**: Thread counts in scaling data should be consistent across all models/executables
 4. **Data Types**: All numeric values should be numbers (not strings), null values are allowed for missing data
-5. **Performance**: Active and inactive rates should be positive numbers when not null
+5. **Performance**: Active and inactive rates should be positive numbers when not null (values that are non-positive/NaN/inf are converted to null during generation)
 
 ## Dynamic Discovery
 
