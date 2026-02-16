@@ -370,7 +370,7 @@ def load_json(path: Path, result: ValidationResult, scope: str) -> dict[str, Any
     return None
 
 
-def validate_run_dir(run_dir: Path) -> ValidationResult:
+def load_and_validate_run(run_dir: Path) -> tuple[dict[str, Any] | None, dict[str, Any] | None, ValidationResult]:
     result = ValidationResult(run_path=run_dir)
     config_path = run_dir / "config.json"
     results_path = run_dir / "results.json"
@@ -379,7 +379,7 @@ def validate_run_dir(run_dir: Path) -> ValidationResult:
     results = load_json(results_path, result, "results.json")
 
     if config is None or results is None:
-        return result
+        return None, None, result
 
     validate_config(config, result)
     validate_results(config, results, result)
@@ -387,7 +387,25 @@ def validate_run_dir(run_dir: Path) -> ValidationResult:
     if config.get("run_id") and config["run_id"] != run_dir.name:
         result.add_warning("config.json run_id does not match directory name")
 
+    return config, results, result
+
+
+def validate_run_dir(run_dir: Path) -> ValidationResult:
+    _, _, result = load_and_validate_run(run_dir)
     return result
+
+
+def discover_run_dirs_recursive(root: Path) -> list[Path]:
+    run_dirs: set[Path] = set()
+    if (root / "config.json").exists() and (root / "results.json").exists():
+        run_dirs.add(root)
+
+    for config_path in root.rglob("config.json"):
+        run_dir = config_path.parent
+        if (run_dir / "results.json").exists():
+            run_dirs.add(run_dir)
+
+    return sorted(run_dirs, key=lambda path: path.as_posix())
 
 
 def discover_run_dirs(root: Path) -> list[Path]:
