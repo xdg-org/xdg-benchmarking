@@ -2,13 +2,10 @@ import dash
 from dash import dcc, html, Input, Output, callback
 import plotly.express as px
 import plotly.graph_objects as go
-from plotly.subplots import make_subplots
 import pandas as pd
-import numpy as np
-import os
-import glob
-from datetime import datetime
-import json
+from pathlib import Path
+
+from schema_validator import discover_run_dirs_recursive, load_and_validate_run
 
 # Initialize the Dash app
 app = dash.Dash(__name__, title="XDG Benchmarking Dashboard")
@@ -16,71 +13,61 @@ server = app.server
 
 # Data loading and processing functions
 def load_benchmark_data():
-    """Load all benchmark data from the results directory"""
+    """Load all benchmark data from the results directory (schema-based)."""
     data = []
-    results_dir = "results"
+    results_dir = Path("results")
 
-    if not os.path.exists(results_dir):
+    if not results_dir.exists():
         return pd.DataFrame()
 
-    # Find all result directories
-    result_dirs = [d for d in os.listdir(results_dir) if os.path.isdir(os.path.join(results_dir, d))]
-
-    for result_dir in result_dirs:
-        run_date = result_dir
-        run_path = os.path.join(results_dir, result_dir)
-
-        # Load run summary if available
-        run_summary_path = os.path.join(run_path, "run_summary.txt")
-        run_config = {}
-        if os.path.exists(run_summary_path):
-            with open(run_summary_path, 'r') as f:
-                content = f.read()
-                # Extract run date
-                for line in content.split('\n'):
-                    if 'Run Date:' in line:
-                        run_config['run_date'] = line.split('Run Date:')[1].strip()
-                        break
-
-        # Find all CSV files
-        csv_files = glob.glob(os.path.join(run_path, "*_scaling.csv"))
-
-        for csv_file in csv_files:
-            filename = os.path.basename(csv_file)
-            # Parse filename: Model_Executable_scaling.csv
-            parts = filename.replace('_scaling.csv', '').split('_')
-            if len(parts) >= 2:
-                executable = parts[-1]  # Last part is executable
-                model = '_'.join(parts[:-1])  # Everything else is model name
-
-                try:
-                    df = pd.read_csv(csv_file, comment='#')
-                    df['Model'] = model
-                    df['Executable'] = executable
-                    df['Run_ID'] = run_date
-                    df['Run_Date'] = run_config.get('run_date', run_date)
-
-                    # Clean up column names
-                    df.columns = [col.strip() for col in df.columns]
-
-                    data.append(df)
-                except Exception as e:
-                    print(f"Error loading {csv_file}: {e}")
-
-    if data:
-        combined_df = pd.concat(data, ignore_index=True)
-        # Convert threads to numeric, handling scientific notation
-        combined_df['# Threads'] = pd.to_numeric(combined_df['# Threads'], errors='coerce')
-        combined_df['Active rate'] = pd.to_numeric(combined_df['Active rate'], errors='coerce')
-        combined_df['Inactive rate'] = pd.to_numeric(combined_df['Inactive rate'], errors='coerce')
-
-        # Print column names for debugging
-        print(f"Column names: {combined_df.columns.tolist()}")
-        print(f"Sample data:\n{combined_df.head()}")
-
-        return combined_df
-    else:
+    run_dirs = discover_run_dirs_recursive(results_dir)
+    if not run_dirs:
         return pd.DataFrame()
+
+    for run_dir in run_dirs:
+        config, results, validation = load_and_validate_run(run_dir)
+        if not validation.ok:
+            print(f"Skipping invalid run: {run_dir}")
+            for message in validation.errors:
+                print(f"  - {message}")
+            continue
+
+        if validation.warnings:
+            print(f"Warnings for run: {run_dir}")
+            for message in validation.warnings:
+                print(f"  - {message}")
+
+        run_id = config.get("run_id", run_dir.name)
+        run_date = config.get("date", run_dir.name)
+
+        results_obj = results.get("results", {})
+        for model_id, model_results in results_obj.items():
+            for exec_id, exec_results in model_results.items():
+                for point in exec_results.get("scaling", []):
+                    data.append(
+                        {
+                            "Model": model_id,
+                            "Executable": exec_id,
+                            "Run_ID": run_id,
+                            "Run_Date": run_date,
+                            "# Threads": point.get("threads"),
+                            "Active rate": point.get("active_rate"),
+                            "Inactive rate": point.get("inactive_rate"),
+                        }
+                    )
+
+    if not data:
+        return pd.DataFrame()
+
+    combined_df = pd.DataFrame(data)
+    combined_df['# Threads'] = pd.to_numeric(combined_df['# Threads'], errors='coerce')
+    combined_df['Active rate'] = pd.to_numeric(combined_df['Active rate'], errors='coerce')
+    combined_df['Inactive rate'] = pd.to_numeric(combined_df['Inactive rate'], errors='coerce')
+
+    print(f"Column names: {combined_df.columns.tolist()}")
+    print(f"Sample data:\n{combined_df.head()}")
+
+    return combined_df
 
 # Load data
 df = load_benchmark_data()
