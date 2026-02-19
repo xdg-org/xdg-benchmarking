@@ -21,6 +21,7 @@ RESULTS_DIR = Path("results")
 DATA_LOCK = threading.Lock()
 DOWNLOAD_LOCK = threading.Lock()
 DOWNLOAD_STATE = {"status": "idle", "message": "", "version": 0}
+LOCAL_DATA_VERSION = 0
 
 # Initialize the Dash app
 app = dash.Dash(__name__, title="XDG Benchmarking Dashboard")
@@ -128,13 +129,15 @@ def refresh_data_from_remote():
             set_download_state(message="Loading data...")
             new_df, new_flux_df = load_benchmark_data()
             with DATA_LOCK:
-                global df, flux_df
+                global df, flux_df, LOCAL_DATA_VERSION
                 df = new_df
                 flux_df = new_flux_df
 
             runs_count = 0 if df.empty else df['Run_ID'].nunique()
             message = f"Loaded {runs_count} dataset(s) at {datetime.now().strftime('%b %d, %Y %I:%M %p')}"
             set_download_state(message=message, status="idle", increment_version=True)
+            with DATA_LOCK:
+                LOCAL_DATA_VERSION = DOWNLOAD_STATE.get("version", LOCAL_DATA_VERSION)
             print(f"[refresh] {message}")
         except Exception as exc:
             set_download_state(message=f"Refresh failed: {exc}", status="idle")
@@ -271,6 +274,7 @@ def load_benchmark_data():
 
 # Load data
 df, flux_df = load_benchmark_data()
+LOCAL_DATA_VERSION = DOWNLOAD_STATE.get("version", 0)
 
 def normalize_value(value):
     if hasattr(value, "item"):
@@ -292,6 +296,24 @@ def build_filter_options(series: pd.Series):
     except TypeError:
         values = sorted(values, key=lambda v: str(v))
     return [{'label': str(v), 'value': v} for v in values]
+
+def ensure_data_loaded(requested_version):
+    global df, flux_df, LOCAL_DATA_VERSION
+    if requested_version is None:
+        return
+    try:
+        requested_version = int(requested_version)
+    except (TypeError, ValueError):
+        return
+    if requested_version <= LOCAL_DATA_VERSION:
+        return
+    with DATA_LOCK:
+        if requested_version <= LOCAL_DATA_VERSION:
+            return
+        new_df, new_flux_df = load_benchmark_data()
+        df = new_df
+        flux_df = new_flux_df
+        LOCAL_DATA_VERSION = requested_version
 
 
 def build_run_options(dataframe: pd.DataFrame):
@@ -335,6 +357,7 @@ date_min, date_max, date_start_default, date_end_default = build_date_bounds(df)
     State('run-filter', 'value'),
 )
 def update_run_options(start_date, end_date, _data_version, current_runs):
+    ensure_data_loaded(_data_version)
     with DATA_LOCK:
         current_df = df.copy()
     if current_df.empty:
@@ -435,6 +458,7 @@ def update_filter_options(
     current_os,
     current_python,
 ):
+    ensure_data_loaded(_data_version)
     with DATA_LOCK:
         current_df = df.copy()
 
@@ -511,6 +535,7 @@ def update_filter_options(
     State('run-date-range', 'end_date'),
 )
 def update_date_bounds(_data_version, current_start, current_end):
+    ensure_data_loaded(_data_version)
     with DATA_LOCK:
         current_df = df.copy()
 
@@ -777,6 +802,7 @@ def update_charts(
     metric,
     _data_version,
 ):
+    ensure_data_loaded(_data_version)
     with DATA_LOCK:
         current_df = df.copy()
         current_flux_df = flux_df.copy()
