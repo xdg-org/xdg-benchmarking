@@ -89,6 +89,9 @@ def extract_results_zip(zip_path: Path, target_dir: Path) -> None:
         print(f"[refresh] Found {len(run_dirs)} run(s) in extracted data")
 
         target_runs_dir = target_dir / "runs"
+        if target_runs_dir.exists():
+            print(f"[refresh] Clearing existing runs at {target_runs_dir}")
+            shutil.rmtree(target_runs_dir)
         target_runs_dir.mkdir(parents=True, exist_ok=True)
         for run_dir in run_dirs:
             dest = target_runs_dir / run_dir.name
