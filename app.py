@@ -4,6 +4,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 import pandas as pd
 import json
+import os
 import shutil
 import tempfile
 import threading
@@ -52,6 +53,9 @@ def parse_date_range(start_date, end_date):
     return start_ts, end_ts
 
 def load_results_url():
+    env_url = os.environ.get("XDG_RESULTS_ZIP_URL")
+    if env_url:
+        return env_url, None
     if not LOCAL_CONFIG_PATH.exists():
         return None, f"Missing {LOCAL_CONFIG_PATH}"
     try:
