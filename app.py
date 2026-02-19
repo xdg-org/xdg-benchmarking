@@ -68,41 +68,38 @@ def load_results_url():
     return url, None
 
 
+def set_download_state(*, status=None, message=None, increment_version=False):
+    with DOWNLOAD_LOCK:
+        if status is not None:
+            DOWNLOAD_STATE["status"] = status
+        if message is not None:
+            DOWNLOAD_STATE["message"] = message
+        if increment_version:
+            DOWNLOAD_STATE["version"] += 1
+
+
 def extract_results_zip(zip_path: Path, target_dir: Path) -> None:
+    print(f"[refresh] Extracting zip: {zip_path}")
     with tempfile.TemporaryDirectory() as tmpdir:
         extract_dir = Path(tmpdir) / "extract"
         extract_dir.mkdir(parents=True, exist_ok=True)
         with zipfile.ZipFile(zip_path, "r") as zf:
             zf.extractall(extract_dir)
-            names = [Path(name) for name in zf.namelist() if name and not name.endswith("/")]
+        run_dirs = discover_run_dirs_recursive(extract_dir)
+        print(f"[refresh] Found {len(run_dirs)} run(s) in extracted data")
 
-        top_levels = {name.parts[0] for name in names if name.parts}
-        if len(top_levels) == 1:
-            root = extract_dir / next(iter(top_levels))
-        else:
-            root = extract_dir
-
-        if root.name == "results":
-            source = root
-        elif (root / "runs").exists():
-            source = root
-        elif (extract_dir / "runs").exists():
-            source = extract_dir
-        else:
-            source = root
-
-        target_dir.mkdir(parents=True, exist_ok=True)
-        for item in source.iterdir():
-            dest = target_dir / item.name
-            if item.is_dir():
-                shutil.copytree(item, dest, dirs_exist_ok=True)
-            else:
-                shutil.copy2(item, dest)
+        target_runs_dir = target_dir / "runs"
+        target_runs_dir.mkdir(parents=True, exist_ok=True)
+        for run_dir in run_dirs:
+            dest = target_runs_dir / run_dir.name
+            print(f"[refresh] Copying run {run_dir} -> {dest}")
+            shutil.copytree(run_dir, dest, dirs_exist_ok=True)
 
 
 def download_and_extract_results(url: str, target_dir: Path) -> None:
     with tempfile.TemporaryDirectory() as tmpdir:
         zip_path = Path(tmpdir) / "results.zip"
+        print(f"[refresh] Downloading results from {url}")
         urllib.request.urlretrieve(url, zip_path)
         extract_results_zip(zip_path, target_dir)
 
@@ -112,28 +109,33 @@ def refresh_data_from_remote():
         if DOWNLOAD_STATE["status"] == "downloading":
             return False
         DOWNLOAD_STATE["status"] = "downloading"
-        DOWNLOAD_STATE["message"] = "Downloading results..."
+        DOWNLOAD_STATE["message"] = "Starting refresh..."
 
     def _worker():
         try:
+            set_download_state(message="Loading results URL...")
             url, error = load_results_url()
             if error:
-                DOWNLOAD_STATE["message"] = error
+                set_download_state(message=f"Refresh failed: {error}", status="idle")
+                print(f"[refresh] {error}")
                 return
 
+            set_download_state(message="Downloading ZIP...")
             download_and_extract_results(url, RESULTS_DIR)
+            set_download_state(message="Loading data...")
             new_df, new_flux_df = load_benchmark_data()
             with DATA_LOCK:
                 global df, flux_df
                 df = new_df
                 flux_df = new_flux_df
 
-            DOWNLOAD_STATE["message"] = f"Last updated {datetime.now().strftime('%b %d, %Y %I:%M %p')}"
-            DOWNLOAD_STATE["version"] += 1
+            runs_count = 0 if df.empty else df['Run_ID'].nunique()
+            message = f"Loaded {runs_count} dataset(s) at {datetime.now().strftime('%b %d, %Y %I:%M %p')}"
+            set_download_state(message=message, status="idle", increment_version=True)
+            print(f"[refresh] {message}")
         except Exception as exc:
-            DOWNLOAD_STATE["message"] = f"Refresh failed: {exc}"
-        finally:
-            DOWNLOAD_STATE["status"] = "idle"
+            set_download_state(message=f"Refresh failed: {exc}", status="idle")
+            print(f"[refresh] Refresh failed: {exc}")
 
     thread = threading.Thread(target=_worker, daemon=True)
     thread.start()
