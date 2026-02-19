@@ -63,6 +63,9 @@ def load_benchmark_data():
     combined_df['# Threads'] = pd.to_numeric(combined_df['# Threads'], errors='coerce')
     combined_df['Active rate'] = pd.to_numeric(combined_df['Active rate'], errors='coerce')
     combined_df['Inactive rate'] = pd.to_numeric(combined_df['Inactive rate'], errors='coerce')
+    combined_df['Run_Date_Parsed'] = pd.to_datetime(
+        combined_df['Run_Date'], errors='coerce', utc=True
+    ).dt.tz_convert(None)
 
     print(f"Column names: {combined_df.columns.tolist()}")
     print(f"Sample data:\n{combined_df.head()}")
@@ -71,6 +74,23 @@ def load_benchmark_data():
 
 # Load data
 df = load_benchmark_data()
+
+def build_run_options(dataframe: pd.DataFrame):
+    if dataframe.empty:
+        return [], []
+    runs = (
+        dataframe[['Run_ID', 'Run_Date', 'Run_Date_Parsed']]
+        .drop_duplicates()
+        .sort_values(['Run_Date_Parsed', 'Run_ID'])
+    )
+    options = [
+        {'label': f"{row['Run_ID']} ({row['Run_Date']})", 'value': row['Run_ID']}
+        for _, row in runs.iterrows()
+    ]
+    values = runs['Run_ID'].tolist()
+    return options, values
+
+run_options, run_values = build_run_options(df)
 
 # App layout
 app.layout = html.Div([
@@ -107,11 +127,11 @@ app.layout = html.Div([
             ], style={'width': '25%', 'display': 'inline-block', 'marginRight': 20}),
 
             html.Div([
-                html.Label("Run ID:", style={'fontWeight': 'bold'}),
+                html.Label("Dataset / Run:", style={'fontWeight': 'bold'}),
                 dcc.Dropdown(
                     id='run-filter',
-                    options=[{'label': run, 'value': run} for run in sorted(df['Run_ID'].unique())] if not df.empty else [],
-                    value=sorted(df['Run_ID'].unique()) if not df.empty else [],
+                    options=run_options,
+                    value=run_values if run_values else [],
                     multi=True,
                     style={'width': '100%'}
                 )
@@ -135,19 +155,19 @@ app.layout = html.Div([
     # Main charts section
     html.Div([
         html.Div([
-            html.H3("Performance Scaling", style={'color': '#2c3e50', 'marginBottom': 15}),
+            html.H3("Performance Scaling by Dataset", style={'color': '#2c3e50', 'marginBottom': 15}),
             dcc.Graph(id='scaling-chart', style={'height': 500})
         ], style={'width': '50%', 'display': 'inline-block', 'verticalAlign': 'top'}),
 
         html.Div([
-            html.H3("Speedup Analysis", style={'color': '#2c3e50', 'marginBottom': 15}),
+            html.H3("Speedup by Dataset", style={'color': '#2c3e50', 'marginBottom': 15}),
             dcc.Graph(id='speedup-chart', style={'height': 500})
         ], style={'width': '50%', 'display': 'inline-block', 'verticalAlign': 'top'})
     ], style={'marginBottom': 30}),
 
     # Comparison section
     html.Div([
-        html.H3("Executable Comparison", style={'color': '#2c3e50', 'marginBottom': 15}),
+        html.H3("Max Performance Over Time", style={'color': '#2c3e50', 'marginBottom': 15}),
         dcc.Graph(id='comparison-chart', style={'height': 400})
     ], style={'marginBottom': 30}),
 
@@ -192,76 +212,117 @@ def update_charts(model, executables, runs, metric):
     if filtered_df.empty:
         return {}, {}, {}, "No data available for selected filters", "No data available"
 
-    # Scaling chart
-    scaling_fig = px.line(
-        filtered_df,
+    filtered_df = filtered_df.sort_values(['Run_Date_Parsed', 'Run_ID', '# Threads'])
+    run_order = filtered_df['Run_ID'].drop_duplicates().tolist()
+    dash_by = 'Executable' if filtered_df['Executable'].nunique() > 1 else None
+
+    # Scaling chart (dataset-oriented)
+    scaling_kwargs = dict(
+        data_frame=filtered_df,
         x='# Threads',
         y=metric,
-        color='Executable',
+        color='Run_ID',
         title=f'{metric} vs Thread Count',
-        labels={'# Threads': 'Number of Threads', metric: f'{metric} (particles/sec)'}
+        labels={'# Threads': 'Number of Threads', metric: f'{metric} (particles/sec)'},
+        hover_data={'Executable': True, 'Run_Date': True, 'Run_ID': True},
+        category_orders={'Run_ID': run_order},
+        markers=True,
     )
+    if dash_by:
+        scaling_kwargs['line_dash'] = dash_by
+    scaling_fig = px.line(**scaling_kwargs)
     scaling_fig.update_layout(
         xaxis_title="Number of Threads",
         yaxis_title=f"{metric} (particles/sec)",
         hovermode='x unified'
     )
 
-    # Speedup chart
-    speedup_fig = go.Figure()
+    # Speedup chart (dataset-oriented)
+    speedup_df = filtered_df.copy()
+    baseline = (
+        speedup_df[speedup_df['# Threads'] == 1]
+        .groupby(['Run_ID', 'Executable', 'Model'])[metric]
+        .first()
+        .reset_index()
+        .rename(columns={metric: 'Baseline'})
+    )
+    speedup_df = speedup_df.merge(
+        baseline, on=['Run_ID', 'Executable', 'Model'], how='left'
+    )
+    speedup_df = speedup_df[pd.notna(speedup_df['Baseline']) & (speedup_df['Baseline'] > 0)]
+    speedup_df['Speedup'] = speedup_df[metric] / speedup_df['Baseline']
 
-    # Calculate speedup for each executable
-    for exe in filtered_df['Executable'].unique():
-        exe_data = filtered_df[filtered_df['Executable'] == exe].copy()
-        if not exe_data.empty:
-            # Get single-thread performance as baseline
-            single_thread = exe_data[exe_data['# Threads'] == 1][metric].iloc[0]
-            if pd.notna(single_thread) and single_thread > 0:
-                exe_data['Speedup'] = exe_data[metric] / single_thread
-                exe_data['Efficiency'] = exe_data['Speedup'] / exe_data['# Threads']
-
-                speedup_fig.add_trace(go.Scatter(
-                    x=exe_data['# Threads'],
-                    y=exe_data['Speedup'],
-                    mode='lines+markers',
-                    name=f'{exe} Speedup',
-                    hovertemplate='Threads: %{x}<br>Speedup: %{y:.2f}<extra></extra>'
-                ))
-
-    # Add ideal speedup line
-    max_threads = filtered_df['# Threads'].max()
-    speedup_fig.add_trace(go.Scatter(
-        x=[1, max_threads],
-        y=[1, max_threads],
-        mode='lines',
-        name='Ideal Speedup',
-        line=dict(dash='dash', color='gray'),
-        hovertemplate='Threads: %{x}<br>Ideal Speedup: %{y}<extra></extra>'
-    ))
-
-    speedup_fig.update_layout(
+    speedup_kwargs = dict(
+        data_frame=speedup_df,
+        x='# Threads',
+        y='Speedup',
+        color='Run_ID',
         title='Speedup vs Thread Count',
-        xaxis_title='Number of Threads',
-        yaxis_title='Speedup',
-        hovermode='x unified'
+        labels={'# Threads': 'Number of Threads', 'Speedup': 'Speedup'},
+        hover_data={'Executable': True, 'Run_Date': True, 'Run_ID': True},
+        category_orders={'Run_ID': run_order},
+        markers=True,
+    )
+    if dash_by:
+        speedup_kwargs['line_dash'] = dash_by
+    if speedup_df.empty:
+        speedup_fig = go.Figure()
+        speedup_fig.update_layout(
+            title='Speedup vs Thread Count',
+            xaxis_title='Number of Threads',
+            yaxis_title='Speedup'
+        )
+    else:
+        speedup_fig = px.line(**speedup_kwargs)
+
+        max_threads = speedup_df['# Threads'].max()
+        if pd.notna(max_threads):
+            speedup_fig.add_trace(go.Scatter(
+                x=[1, max_threads],
+                y=[1, max_threads],
+                mode='lines',
+                name='Ideal Speedup',
+                line=dict(dash='dash', color='gray'),
+                hovertemplate='Threads: %{x}<br>Ideal Speedup: %{y}<extra></extra>'
+            ))
+
+        speedup_fig.update_layout(
+            xaxis_title='Number of Threads',
+            yaxis_title='Speedup',
+            hovermode='x unified'
+        )
+
+    # Max performance over time
+    max_performance = (
+        filtered_df.groupby(['Run_ID', 'Run_Date', 'Run_Date_Parsed', 'Executable', 'Model'])[metric]
+        .max()
+        .reset_index()
+        .sort_values(['Run_Date_Parsed', 'Run_ID'])
     )
 
-    # Comparison chart (bar chart for max performance)
-    max_performance = filtered_df.groupby(['Model', 'Executable'])[metric].max().reset_index()
-
-    comparison_fig = px.bar(
-        max_performance,
-        x='Model',
-        y=metric,
-        color='Executable',
-        title=f'Maximum {metric} by Model and Executable',
-        barmode='group'
-    )
-    comparison_fig.update_layout(
-        xaxis_title="Model",
-        yaxis_title=f"{metric} (particles/sec)",
-        hovermode='x unified'
-    )
+    if max_performance.empty:
+        comparison_fig = go.Figure()
+        comparison_fig.update_layout(
+            title=f'Maximum {metric} Over Time',
+            xaxis_title="Run Date",
+            yaxis_title=f"{metric} (particles/sec)"
+        )
+    else:
+        comparison_fig = px.line(
+            max_performance,
+            x='Run_Date_Parsed',
+            y=metric,
+            color='Executable',
+            markers=True,
+            title=f'Maximum {metric} Over Time',
+            labels={'Run_Date_Parsed': 'Run Date', metric: f'{metric} (particles/sec)'},
+            hover_data={'Run_ID': True, 'Run_Date': True, 'Executable': True, 'Run_Date_Parsed': False}
+        )
+        comparison_fig.update_layout(
+            xaxis_title="Run Date",
+            yaxis_title=f"{metric} (particles/sec)",
+            hovermode='x unified'
+        )
 
     # Summary statistics
     summary_stats = []
@@ -271,7 +332,11 @@ def update_charts(model, executables, runs, metric):
     summary_stats.append(html.P(f"Total data points: {len(filtered_df)}"))
     summary_stats.append(html.P(f"Models: {', '.join(filtered_df['Model'].unique())}"))
     summary_stats.append(html.P(f"Executables: {', '.join(filtered_df['Executable'].unique())}"))
-    summary_stats.append(html.P(f"Runs: {', '.join(filtered_df['Run_ID'].unique())}"))
+    summary_stats.append(html.P(f"Runs: {filtered_df['Run_ID'].nunique()}"))
+    if filtered_df['Run_Date_Parsed'].notna().any():
+        min_date = filtered_df['Run_Date_Parsed'].min().strftime('%Y-%m-%d')
+        max_date = filtered_df['Run_Date_Parsed'].max().strftime('%Y-%m-%d')
+        summary_stats.append(html.P(f"Date Range: {min_date} to {max_date}"))
 
     # Performance statistics
     summary_stats.append(html.H4("Performance Statistics"))
@@ -292,8 +357,12 @@ def update_charts(model, executables, runs, metric):
     summary_stats.append(html.P(f"Rate: {best_config[metric]:.2e} particles/sec"))
 
     # Data table
-    table_data = filtered_df.round(2).to_dict('records')
-    table_columns = [{"name": col, "id": col} for col in filtered_df.columns]
+    table_columns_order = [
+        'Run_ID', 'Run_Date', 'Model', 'Executable', '# Threads', 'Active rate', 'Inactive rate'
+    ]
+    table_df = filtered_df[table_columns_order].copy()
+    table_data = table_df.round(2).to_dict('records')
+    table_columns = [{"name": col, "id": col} for col in table_df.columns]
 
     data_table = dash.dash_table.DataTable(
         data=table_data,
