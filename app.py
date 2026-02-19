@@ -1,5 +1,5 @@
 import dash
-from dash import dcc, html, Input, Output, callback
+from dash import dcc, html, Input, Output, State, callback
 import plotly.express as px
 import plotly.graph_objects as go
 import pandas as pd
@@ -22,6 +22,20 @@ def build_energy_axis(mean_flux, energy_divs):
                 for i in range(len(mean_flux))
             ]
     return list(range(1, len(mean_flux) + 1))
+
+def format_run_date(series: pd.Series) -> pd.Series:
+    if series is None or series.empty:
+        return series
+    parsed = pd.to_datetime(series, errors='coerce', utc=True).dt.tz_convert(None)
+    formatted = parsed.dt.strftime('%B %-d, %Y %-I:%M %p')
+    return formatted.fillna(series)
+
+def parse_date_range(start_date, end_date):
+    start_ts = pd.to_datetime(start_date, errors='coerce') if start_date else None
+    end_ts = pd.to_datetime(end_date, errors='coerce') if end_date else None
+    if end_ts is not None and pd.notna(end_ts):
+        end_ts = end_ts + pd.Timedelta(days=1) - pd.Timedelta(microseconds=1)
+    return start_ts, end_ts
 
 
 def load_benchmark_data():
@@ -124,6 +138,7 @@ def load_benchmark_data():
     combined_df['Run_Date_Parsed'] = pd.to_datetime(
         combined_df['Run_Date'], errors='coerce', utc=True
     ).dt.tz_convert(None)
+    combined_df['Run_Date_Display'] = format_run_date(combined_df['Run_Date'])
 
     print(f"Column names: {combined_df.columns.tolist()}")
     print(f"Sample data:\n{combined_df.head()}")
@@ -143,6 +158,7 @@ def load_benchmark_data():
         flux_df['Run_Date_Parsed'] = pd.to_datetime(
             flux_df['Run_Date'], errors='coerce', utc=True
         ).dt.tz_convert(None)
+        flux_df['Run_Date_Display'] = format_run_date(flux_df['Run_Date'])
 
     return combined_df, flux_df
 
@@ -175,16 +191,23 @@ def build_run_options(dataframe: pd.DataFrame):
     if dataframe.empty:
         return [], []
     runs = (
-        dataframe[['Run_ID', 'Run_Date', 'Run_Date_Parsed']]
+        dataframe[['Run_ID', 'Run_Date', 'Run_Date_Display', 'Run_Date_Parsed']]
         .drop_duplicates()
         .sort_values(['Run_Date_Parsed', 'Run_ID'])
     )
     options = [
-        {'label': f"{row['Run_ID']} ({row['Run_Date']})", 'value': row['Run_ID']}
+        {'label': f"{row['Run_ID']} ({row['Run_Date_Display']})", 'value': row['Run_ID']}
         for _, row in runs.iterrows()
     ]
     values = runs['Run_ID'].tolist()
     return options, values
+
+def build_date_bounds(dataframe: pd.DataFrame):
+    if dataframe.empty or dataframe['Run_Date_Parsed'].isna().all():
+        return None, None, None, None
+    min_date = dataframe['Run_Date_Parsed'].min().date()
+    max_date = dataframe['Run_Date_Parsed'].max().date()
+    return min_date, max_date, min_date, max_date
 
 run_options, run_values = build_run_options(df)
 config_options = build_filter_options(df.get('Config_File')) if not df.empty else []
@@ -193,6 +216,48 @@ os_options = build_filter_options(df.get('OS')) if not df.empty else []
 python_options = build_filter_options(df.get('Python_Version')) if not df.empty else []
 particles_options = build_filter_options(df.get('Particles_Per_Thread')) if not df.empty else []
 max_threads_options = build_filter_options(df.get('Config_Max_Threads')) if not df.empty else []
+date_min, date_max, date_start_default, date_end_default = build_date_bounds(df)
+
+
+@callback(
+    Output('run-filter', 'options'),
+    Output('run-filter', 'value'),
+    Input('run-date-range', 'start_date'),
+    Input('run-date-range', 'end_date'),
+    State('run-filter', 'value'),
+)
+def update_run_options(start_date, end_date, current_runs):
+    if df.empty:
+        return [], []
+
+    mask = pd.Series(True, index=df.index)
+    start_ts, end_ts = parse_date_range(start_date, end_date)
+
+    if start_ts is not None and pd.notna(start_ts):
+        mask &= df['Run_Date_Parsed'] >= start_ts
+    if end_ts is not None and pd.notna(end_ts):
+        mask &= df['Run_Date_Parsed'] <= end_ts
+
+    runs = (
+        df.loc[mask, ['Run_ID', 'Run_Date_Display', 'Run_Date_Parsed']]
+        .drop_duplicates()
+        .sort_values(['Run_Date_Parsed', 'Run_ID'])
+    )
+    options = [
+        {'label': f"{row['Run_ID']} ({row['Run_Date_Display']})", 'value': row['Run_ID']}
+        for _, row in runs.iterrows()
+    ]
+    available = runs['Run_ID'].tolist()
+
+    if current_runs:
+        new_value = [run_id for run_id in current_runs if run_id in available]
+    else:
+        new_value = []
+
+    if not new_value and available:
+        new_value = available
+
+    return options, new_value
 
 # App layout
 app.layout = html.Div([
@@ -211,6 +276,18 @@ app.layout = html.Div([
                 "Choose the datasets you want to compare. Filters below narrow by dataset properties.",
                 style={'color': '#7f8c8d', 'marginBottom': 15}
             ),
+            html.Div([
+                html.Label("Date Range:", style={'fontWeight': 'bold'}),
+                dcc.DatePickerRange(
+                    id='run-date-range',
+                    min_date_allowed=date_min,
+                    max_date_allowed=date_max,
+                    start_date=date_start_default,
+                    end_date=date_end_default,
+                    display_format='MMM D, YYYY',
+                    style={'width': '100%'}
+                )
+            ], style={'marginBottom': 12}),
             html.Label("Dataset / Run:", style={'fontWeight': 'bold'}),
             dcc.Dropdown(
                 id='run-filter',
@@ -218,8 +295,8 @@ app.layout = html.Div([
                 value=run_values if run_values else [],
                 multi=True,
                 style={'width': '100%'}
-            )
-        ], style={'backgroundColor': '#f8f9fa', 'padding': 20, 'borderRadius': 10, 'flex': '1 1 320px'}),
+            ),
+        ], style={'backgroundColor': '#f8f9fa', 'padding': 20, 'borderRadius': 10, 'flex': '1 1 320px', 'minWidth': 360}),
 
         html.Div([
             html.H3("Dataset Filters", style={'color': '#2c3e50', 'marginBottom': 10}),
@@ -379,6 +456,8 @@ app.layout = html.Div([
     Input('model-filter', 'value'),
     Input('executable-filter', 'value'),
     Input('run-filter', 'value'),
+    Input('run-date-range', 'start_date'),
+    Input('run-date-range', 'end_date'),
     Input('config-filter', 'value'),
     Input('particles-filter', 'value'),
     Input('maxthreads-filter', 'value'),
@@ -391,6 +470,8 @@ def update_charts(
     model,
     executables,
     runs,
+    start_date,
+    end_date,
     config_files,
     particles_per_thread,
     max_threads_config,
@@ -410,6 +491,14 @@ def update_charts(
         filtered_df = filtered_df[filtered_df['Executable'].isin(executables)]
     if runs:
         filtered_df = filtered_df[filtered_df['Run_ID'].isin(runs)]
+    if start_date:
+        start_ts, _ = parse_date_range(start_date, None)
+        if pd.notna(start_ts):
+            filtered_df = filtered_df[filtered_df['Run_Date_Parsed'] >= start_ts]
+    if end_date:
+        _, end_ts = parse_date_range(None, end_date)
+        if pd.notna(end_ts):
+            filtered_df = filtered_df[filtered_df['Run_Date_Parsed'] <= end_ts]
     if config_files:
         filtered_df = filtered_df[filtered_df['Config_File'].isin(config_files)]
     if particles_per_thread:
@@ -438,7 +527,7 @@ def update_charts(
         color='Run_ID',
         title=f'{metric} vs Thread Count',
         labels={'# Threads': 'Number of Threads', metric: f'{metric} (particles/sec)'},
-        hover_data={'Executable': True, 'Run_Date': True, 'Run_ID': True},
+        hover_data={'Executable': True, 'Run_Date_Display': True, 'Run_ID': True},
         category_orders={'Run_ID': run_order},
         markers=True,
     )
@@ -473,7 +562,7 @@ def update_charts(
         color='Run_ID',
         title='Speedup vs Thread Count',
         labels={'# Threads': 'Number of Threads', 'Speedup': 'Speedup'},
-        hover_data={'Executable': True, 'Run_Date': True, 'Run_ID': True},
+        hover_data={'Executable': True, 'Run_Date_Display': True, 'Run_ID': True},
         category_orders={'Run_ID': run_order},
         markers=True,
     )
@@ -508,7 +597,9 @@ def update_charts(
 
     # Max performance over time
     max_performance = (
-        filtered_df.groupby(['Run_ID', 'Run_Date', 'Run_Date_Parsed', 'Executable', 'Model'])[metric]
+        filtered_df.groupby(
+            ['Run_ID', 'Run_Date', 'Run_Date_Display', 'Run_Date_Parsed', 'Executable', 'Model']
+        )[metric]
         .max()
         .reset_index()
         .sort_values(['Run_Date_Parsed', 'Run_ID'])
@@ -530,13 +621,14 @@ def update_charts(
             markers=True,
             title=f'Maximum {metric} Over Time',
             labels={'Run_Date_Parsed': 'Run Date', metric: f'{metric} (particles/sec)'},
-            hover_data={'Run_ID': True, 'Run_Date': True, 'Executable': True, 'Run_Date_Parsed': False}
+            hover_data={'Run_ID': True, 'Run_Date_Display': True, 'Executable': True, 'Run_Date_Parsed': False}
         )
         comparison_fig.update_layout(
             xaxis_title="Run Date",
             yaxis_title=f"{metric} (particles/sec)",
             hovermode='x unified'
         )
+        comparison_fig.update_xaxes(tickformat='%b %d, %Y %I:%M %p')
 
     # Flux chart
     flux_filtered = flux_df.copy()
@@ -546,6 +638,14 @@ def update_charts(
         flux_filtered = flux_filtered[flux_filtered['Executable'].isin(executables)]
     if runs:
         flux_filtered = flux_filtered[flux_filtered['Run_ID'].isin(runs)]
+    if start_date:
+        start_ts, _ = parse_date_range(start_date, None)
+        if pd.notna(start_ts):
+            flux_filtered = flux_filtered[flux_filtered['Run_Date_Parsed'] >= start_ts]
+    if end_date:
+        _, end_ts = parse_date_range(None, end_date)
+        if pd.notna(end_ts):
+            flux_filtered = flux_filtered[flux_filtered['Run_Date_Parsed'] <= end_ts]
     if config_files:
         flux_filtered = flux_filtered[flux_filtered['Config_File'].isin(config_files)]
     if particles_per_thread:
@@ -563,7 +663,7 @@ def update_charts(
         flux_fig = go.Figure()
         flux_fig.update_layout(
             title='Flux Spectrum',
-            xaxis_title='Energy',
+            xaxis_title='Energy (eV)',
             yaxis_title='Mean Flux'
         )
     else:
@@ -578,9 +678,10 @@ def update_charts(
             y='Mean_Flux',
             color='Run_ID',
             title='Flux Spectrum',
-            labels={'Energy': 'Energy', 'Mean_Flux': 'Mean Flux'},
-            hover_data={'Executable': True, 'Run_Date': True, 'Run_ID': True},
+            labels={'Energy': 'Energy (eV)', 'Mean_Flux': 'Mean Flux'},
+            hover_data={'Executable': True, 'Run_Date_Display': True, 'Run_ID': True},
             category_orders={'Run_ID': flux_run_order},
+            markers=True,
         )
         if flux_dash_by:
             flux_kwargs['line_dash'] = flux_dash_by
@@ -593,7 +694,7 @@ def update_charts(
             flux_fig.update_xaxes(type='log')
 
         flux_fig.update_layout(
-            xaxis_title='Energy',
+            xaxis_title='Energy (eV)',
             yaxis_title='Mean Flux',
             hovermode='x unified'
         )
@@ -632,9 +733,10 @@ def update_charts(
 
     # Data table
     table_columns_order = [
-        'Run_ID', 'Run_Date', 'Model', 'Executable', '# Threads', 'Active rate', 'Inactive rate'
+        'Run_ID', 'Run_Date_Display', 'Model', 'Executable', '# Threads', 'Active rate', 'Inactive rate'
     ]
     table_df = filtered_df[table_columns_order].copy()
+    table_df = table_df.rename(columns={'Run_Date_Display': 'Run_Date'})
     table_data = table_df.round(2).to_dict('records')
     table_columns = [{"name": col, "id": col} for col in table_df.columns]
 
