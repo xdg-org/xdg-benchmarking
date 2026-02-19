@@ -1,11 +1,25 @@
 import dash
-from dash import dcc, html, Input, Output, State, callback
+from dash import dcc, html, Input, Output, State, callback, ctx
 import plotly.express as px
 import plotly.graph_objects as go
 import pandas as pd
+import json
+import shutil
+import tempfile
+import threading
+import urllib.request
+import zipfile
+from datetime import datetime
 from pathlib import Path
 
 from schema_validator import discover_run_dirs_recursive, load_and_validate_run
+
+# Data refresh configuration
+LOCAL_CONFIG_PATH = Path("local_config.json")
+RESULTS_DIR = Path("results")
+DATA_LOCK = threading.Lock()
+DOWNLOAD_LOCK = threading.Lock()
+DOWNLOAD_STATE = {"status": "idle", "message": "", "version": 0}
 
 # Initialize the Dash app
 app = dash.Dash(__name__, title="XDG Benchmarking Dashboard")
@@ -36,6 +50,90 @@ def parse_date_range(start_date, end_date):
     if end_ts is not None and pd.notna(end_ts):
         end_ts = end_ts + pd.Timedelta(days=1) - pd.Timedelta(microseconds=1)
     return start_ts, end_ts
+
+def load_results_url():
+    if not LOCAL_CONFIG_PATH.exists():
+        return None, f"Missing {LOCAL_CONFIG_PATH}"
+    try:
+        config = json.loads(LOCAL_CONFIG_PATH.read_text())
+    except json.JSONDecodeError as exc:
+        return None, f"Invalid JSON in {LOCAL_CONFIG_PATH}: {exc}"
+    url = config.get("results_zip_url") or config.get("results_url")
+    if not url:
+        return None, f"Missing results_zip_url in {LOCAL_CONFIG_PATH}"
+    return url, None
+
+
+def extract_results_zip(zip_path: Path, target_dir: Path) -> None:
+    with tempfile.TemporaryDirectory() as tmpdir:
+        extract_dir = Path(tmpdir) / "extract"
+        extract_dir.mkdir(parents=True, exist_ok=True)
+        with zipfile.ZipFile(zip_path, "r") as zf:
+            zf.extractall(extract_dir)
+            names = [Path(name) for name in zf.namelist() if name and not name.endswith("/")]
+
+        top_levels = {name.parts[0] for name in names if name.parts}
+        if len(top_levels) == 1:
+            root = extract_dir / next(iter(top_levels))
+        else:
+            root = extract_dir
+
+        if root.name == "results":
+            source = root
+        elif (root / "runs").exists():
+            source = root
+        elif (extract_dir / "runs").exists():
+            source = extract_dir
+        else:
+            source = root
+
+        target_dir.mkdir(parents=True, exist_ok=True)
+        for item in source.iterdir():
+            dest = target_dir / item.name
+            if item.is_dir():
+                shutil.copytree(item, dest, dirs_exist_ok=True)
+            else:
+                shutil.copy2(item, dest)
+
+
+def download_and_extract_results(url: str, target_dir: Path) -> None:
+    with tempfile.TemporaryDirectory() as tmpdir:
+        zip_path = Path(tmpdir) / "results.zip"
+        urllib.request.urlretrieve(url, zip_path)
+        extract_results_zip(zip_path, target_dir)
+
+
+def refresh_data_from_remote():
+    with DOWNLOAD_LOCK:
+        if DOWNLOAD_STATE["status"] == "downloading":
+            return False
+        DOWNLOAD_STATE["status"] = "downloading"
+        DOWNLOAD_STATE["message"] = "Downloading results..."
+
+    def _worker():
+        try:
+            url, error = load_results_url()
+            if error:
+                DOWNLOAD_STATE["message"] = error
+                return
+
+            download_and_extract_results(url, RESULTS_DIR)
+            new_df, new_flux_df = load_benchmark_data()
+            with DATA_LOCK:
+                global df, flux_df
+                df = new_df
+                flux_df = new_flux_df
+
+            DOWNLOAD_STATE["message"] = f"Last updated {datetime.now().strftime('%b %d, %Y %I:%M %p')}"
+            DOWNLOAD_STATE["version"] += 1
+        except Exception as exc:
+            DOWNLOAD_STATE["message"] = f"Refresh failed: {exc}"
+        finally:
+            DOWNLOAD_STATE["status"] = "idle"
+
+    thread = threading.Thread(target=_worker, daemon=True)
+    thread.start()
+    return True
 
 
 def load_benchmark_data():
@@ -224,22 +322,25 @@ date_min, date_max, date_start_default, date_end_default = build_date_bounds(df)
     Output('run-filter', 'value'),
     Input('run-date-range', 'start_date'),
     Input('run-date-range', 'end_date'),
+    Input('data-version', 'data'),
     State('run-filter', 'value'),
 )
-def update_run_options(start_date, end_date, current_runs):
-    if df.empty:
+def update_run_options(start_date, end_date, _data_version, current_runs):
+    with DATA_LOCK:
+        current_df = df.copy()
+    if current_df.empty:
         return [], []
 
-    mask = pd.Series(True, index=df.index)
+    mask = pd.Series(True, index=current_df.index)
     start_ts, end_ts = parse_date_range(start_date, end_date)
 
     if start_ts is not None and pd.notna(start_ts):
-        mask &= df['Run_Date_Parsed'] >= start_ts
+        mask &= current_df['Run_Date_Parsed'] >= start_ts
     if end_ts is not None and pd.notna(end_ts):
-        mask &= df['Run_Date_Parsed'] <= end_ts
+        mask &= current_df['Run_Date_Parsed'] <= end_ts
 
     runs = (
-        df.loc[mask, ['Run_ID', 'Run_Date_Display', 'Run_Date_Parsed']]
+        current_df.loc[mask, ['Run_ID', 'Run_Date_Display', 'Run_Date_Parsed']]
         .drop_duplicates()
         .sort_values(['Run_Date_Parsed', 'Run_ID'])
     )
@@ -259,6 +360,172 @@ def update_run_options(start_date, end_date, current_runs):
 
     return options, new_value
 
+
+@callback(
+    Output('refresh-status', 'children'),
+    Output('data-version', 'data'),
+    Input('refresh-button', 'n_clicks'),
+    Input('refresh-poll', 'n_intervals'),
+    State('data-version', 'data'),
+)
+def handle_refresh(n_clicks, _n_intervals, current_version):
+    trigger = ctx.triggered_id
+    if trigger == 'refresh-button':
+        started = refresh_data_from_remote()
+        if started:
+            return "Refreshing data...", current_version
+        return "Refresh already in progress", current_version
+
+    message = DOWNLOAD_STATE.get("message") or ""
+    status = DOWNLOAD_STATE.get("status")
+    version = DOWNLOAD_STATE.get("version", current_version)
+
+    if version != current_version:
+        return message or "Data updated", version
+
+    if status == "downloading":
+        return message or "Refreshing data...", current_version
+    return message or "Idle", current_version
+
+
+@callback(
+    Output('model-filter', 'options'),
+    Output('model-filter', 'value'),
+    Output('executable-filter', 'options'),
+    Output('executable-filter', 'value'),
+    Output('config-filter', 'options'),
+    Output('config-filter', 'value'),
+    Output('particles-filter', 'options'),
+    Output('particles-filter', 'value'),
+    Output('maxthreads-filter', 'options'),
+    Output('maxthreads-filter', 'value'),
+    Output('machine-filter', 'options'),
+    Output('machine-filter', 'value'),
+    Output('os-filter', 'options'),
+    Output('os-filter', 'value'),
+    Output('python-filter', 'options'),
+    Output('python-filter', 'value'),
+    Input('data-version', 'data'),
+    State('model-filter', 'value'),
+    State('executable-filter', 'value'),
+    State('config-filter', 'value'),
+    State('particles-filter', 'value'),
+    State('maxthreads-filter', 'value'),
+    State('machine-filter', 'value'),
+    State('os-filter', 'value'),
+    State('python-filter', 'value'),
+)
+def update_filter_options(
+    _data_version,
+    current_model,
+    current_executables,
+    current_configs,
+    current_particles,
+    current_maxthreads,
+    current_machines,
+    current_os,
+    current_python,
+):
+    with DATA_LOCK:
+        current_df = df.copy()
+
+    if current_df.empty:
+        return [], None, [], [], [], [], [], [], [], [], [], [], [], [], [], []
+
+    model_options = build_filter_options(current_df.get('Model'))
+    executable_options = build_filter_options(current_df.get('Executable'))
+    config_opts = build_filter_options(current_df.get('Config_File'))
+    particles_opts = build_filter_options(current_df.get('Particles_Per_Thread'))
+    maxthreads_opts = build_filter_options(current_df.get('Config_Max_Threads'))
+    machine_opts = build_filter_options(current_df.get('Machine'))
+    os_opts = build_filter_options(current_df.get('OS'))
+    python_opts = build_filter_options(current_df.get('Python_Version'))
+
+    model_values = [opt['value'] for opt in model_options]
+    executable_values = [opt['value'] for opt in executable_options]
+    config_values = [opt['value'] for opt in config_opts]
+    particles_values = [opt['value'] for opt in particles_opts]
+    maxthreads_values = [opt['value'] for opt in maxthreads_opts]
+    machine_values = [opt['value'] for opt in machine_opts]
+    os_values = [opt['value'] for opt in os_opts]
+    python_values = [opt['value'] for opt in python_opts]
+
+    if current_model in model_values:
+        new_model = current_model
+    else:
+        new_model = model_values[0] if model_values else None
+
+    def intersect_or_all(current, available):
+        if not available:
+            return []
+        if current:
+            filtered = [val for val in current if val in available]
+            if filtered:
+                return filtered
+        return available
+
+    new_executables = intersect_or_all(current_executables, executable_values)
+    new_configs = intersect_or_all(current_configs, config_values)
+    new_particles = intersect_or_all(current_particles, particles_values)
+    new_maxthreads = intersect_or_all(current_maxthreads, maxthreads_values)
+    new_machines = intersect_or_all(current_machines, machine_values)
+    new_os = intersect_or_all(current_os, os_values)
+    new_python = intersect_or_all(current_python, python_values)
+
+    return (
+        model_options,
+        new_model,
+        executable_options,
+        new_executables,
+        config_opts,
+        new_configs,
+        particles_opts,
+        new_particles,
+        maxthreads_opts,
+        new_maxthreads,
+        machine_opts,
+        new_machines,
+        os_opts,
+        new_os,
+        python_opts,
+        new_python,
+    )
+
+
+@callback(
+    Output('run-date-range', 'min_date_allowed'),
+    Output('run-date-range', 'max_date_allowed'),
+    Output('run-date-range', 'start_date'),
+    Output('run-date-range', 'end_date'),
+    Input('data-version', 'data'),
+    State('run-date-range', 'start_date'),
+    State('run-date-range', 'end_date'),
+)
+def update_date_bounds(_data_version, current_start, current_end):
+    with DATA_LOCK:
+        current_df = df.copy()
+
+    if current_df.empty or current_df['Run_Date_Parsed'].isna().all():
+        return None, None, None, None
+
+    min_date = current_df['Run_Date_Parsed'].min().date()
+    max_date = current_df['Run_Date_Parsed'].max().date()
+
+    start = pd.to_datetime(current_start, errors='coerce') if current_start else None
+    end = pd.to_datetime(current_end, errors='coerce') if current_end else None
+
+    if start is None or pd.isna(start) or start.date() < min_date:
+        start = min_date
+    else:
+        start = start.date()
+
+    if end is None or pd.isna(end) or end.date() > max_date:
+        end = max_date
+    else:
+        end = end.date()
+
+    return min_date, max_date, start, end
+
 # App layout
 app.layout = html.Div([
     html.Div([
@@ -276,6 +543,22 @@ app.layout = html.Div([
                 "Choose the datasets you want to compare. Filters below narrow by dataset properties.",
                 style={'color': '#7f8c8d', 'marginBottom': 15}
             ),
+            html.Div([
+                html.Button(
+                    "Refresh Data",
+                    id="refresh-button",
+                    n_clicks=0,
+                    style={
+                        'backgroundColor': '#2c3e50',
+                        'color': 'white',
+                        'border': 'none',
+                        'padding': '6px 12px',
+                        'borderRadius': 6,
+                        'cursor': 'pointer'
+                    }
+                ),
+                html.Span(id='refresh-status', style={'color': '#7f8c8d'})
+            ], style={'display': 'flex', 'gap': 10, 'alignItems': 'center', 'marginBottom': 12}),
             html.Div([
                 html.Label("Date Range:", style={'fontWeight': 'bold'}),
                 dcc.DatePickerRange(
@@ -407,6 +690,9 @@ app.layout = html.Div([
         ], style={'backgroundColor': '#f8f9fa', 'padding': 20, 'borderRadius': 10, 'flex': '1 1 260px'})
     ], style={'display': 'flex', 'gap': 20, 'flexWrap': 'wrap', 'marginBottom': 30}),
 
+    dcc.Interval(id='refresh-poll', interval=2000, n_intervals=0),
+    dcc.Store(id='data-version', data=0),
+
     # Main charts section
     html.Div([
         html.Div([
@@ -464,7 +750,8 @@ app.layout = html.Div([
     Input('machine-filter', 'value'),
     Input('os-filter', 'value'),
     Input('python-filter', 'value'),
-    Input('metric-filter', 'value')
+    Input('metric-filter', 'value'),
+    Input('data-version', 'data')
 )
 def update_charts(
     model,
@@ -479,12 +766,17 @@ def update_charts(
     os_values,
     python_versions,
     metric,
+    _data_version,
 ):
-    if df.empty:
+    with DATA_LOCK:
+        current_df = df.copy()
+        current_flux_df = flux_df.copy()
+
+    if current_df.empty:
         return {}, {}, {}, {}, "No data available", "No data available"
 
     # Filter data
-    filtered_df = df.copy()
+    filtered_df = current_df.copy()
     if model:
         filtered_df = filtered_df[filtered_df['Model'] == model]
     if executables:
@@ -631,7 +923,7 @@ def update_charts(
         comparison_fig.update_xaxes(tickformat='%b %d, %Y %I:%M %p')
 
     # Flux chart
-    flux_filtered = flux_df.copy()
+    flux_filtered = current_flux_df.copy()
     if model:
         flux_filtered = flux_filtered[flux_filtered['Model'] == model]
     if executables:
