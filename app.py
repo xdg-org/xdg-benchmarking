@@ -39,6 +39,7 @@ def load_benchmark_data():
 
         run_id = config.get("run_id", run_dir.name)
         run_date = config.get("date", run_dir.name)
+        arch = config.get("architecture", {}) if isinstance(config.get("architecture"), dict) else {}
 
         results_obj = results.get("results", {})
         for model_id, model_results in results_obj.items():
@@ -50,6 +51,15 @@ def load_benchmark_data():
                             "Executable": exec_id,
                             "Run_ID": run_id,
                             "Run_Date": run_date,
+                            "Config_File": config.get("config_file"),
+                            "Particles_Per_Thread": config.get("particles_per_thread"),
+                            "Config_Max_Threads": config.get("max_threads"),
+                            "N_Repeats": config.get("n_repeats"),
+                            "Machine": arch.get("machine"),
+                            "Processor": arch.get("processor"),
+                            "CPU_Count": arch.get("cpu_count"),
+                            "OS": arch.get("os"),
+                            "Python_Version": arch.get("python_version"),
                             "# Threads": point.get("threads"),
                             "Active rate": point.get("active_rate"),
                             "Inactive rate": point.get("inactive_rate"),
@@ -63,6 +73,14 @@ def load_benchmark_data():
     combined_df['# Threads'] = pd.to_numeric(combined_df['# Threads'], errors='coerce')
     combined_df['Active rate'] = pd.to_numeric(combined_df['Active rate'], errors='coerce')
     combined_df['Inactive rate'] = pd.to_numeric(combined_df['Inactive rate'], errors='coerce')
+    combined_df['Particles_Per_Thread'] = pd.to_numeric(
+        combined_df['Particles_Per_Thread'], errors='coerce'
+    )
+    combined_df['Config_Max_Threads'] = pd.to_numeric(
+        combined_df['Config_Max_Threads'], errors='coerce'
+    )
+    combined_df['N_Repeats'] = pd.to_numeric(combined_df['N_Repeats'], errors='coerce')
+    combined_df['CPU_Count'] = pd.to_numeric(combined_df['CPU_Count'], errors='coerce')
     combined_df['Run_Date_Parsed'] = pd.to_datetime(
         combined_df['Run_Date'], errors='coerce', utc=True
     ).dt.tz_convert(None)
@@ -74,6 +92,28 @@ def load_benchmark_data():
 
 # Load data
 df = load_benchmark_data()
+
+def normalize_value(value):
+    if hasattr(value, "item"):
+        try:
+            value = value.item()
+        except Exception:
+            pass
+    if isinstance(value, float) and value.is_integer():
+        return int(value)
+    return value
+
+
+def build_filter_options(series: pd.Series):
+    if series is None or series.empty:
+        return []
+    values = [normalize_value(v) for v in series.dropna().unique().tolist()]
+    try:
+        values = sorted(values)
+    except TypeError:
+        values = sorted(values, key=lambda v: str(v))
+    return [{'label': str(v), 'value': v} for v in values]
+
 
 def build_run_options(dataframe: pd.DataFrame):
     if dataframe.empty:
@@ -91,6 +131,12 @@ def build_run_options(dataframe: pd.DataFrame):
     return options, values
 
 run_options, run_values = build_run_options(df)
+config_options = build_filter_options(df.get('Config_File')) if not df.empty else []
+machine_options = build_filter_options(df.get('Machine')) if not df.empty else []
+os_options = build_filter_options(df.get('OS')) if not df.empty else []
+python_options = build_filter_options(df.get('Python_Version')) if not df.empty else []
+particles_options = build_filter_options(df.get('Particles_Per_Thread')) if not df.empty else []
+max_threads_options = build_filter_options(df.get('Config_Max_Threads')) if not df.empty else []
 
 # App layout
 app.layout = html.Div([
@@ -101,10 +147,97 @@ app.layout = html.Div([
                style={'textAlign': 'center', 'color': '#7f8c8d', 'fontSize': 18, 'marginBottom': 40})
     ]),
 
-    # Filters section
+    # Dataset and filter sections
     html.Div([
-        html.H3("Filters", style={'color': '#2c3e50', 'marginBottom': 15}),
         html.Div([
+            html.H3("Datasets", style={'color': '#2c3e50', 'marginBottom': 10}),
+            html.P(
+                "Choose the datasets you want to compare. Filters below narrow by dataset properties.",
+                style={'color': '#7f8c8d', 'marginBottom': 15}
+            ),
+            html.Label("Dataset / Run:", style={'fontWeight': 'bold'}),
+            dcc.Dropdown(
+                id='run-filter',
+                options=run_options,
+                value=run_values if run_values else [],
+                multi=True,
+                style={'width': '100%'}
+            )
+        ], style={'backgroundColor': '#f8f9fa', 'padding': 20, 'borderRadius': 10, 'flex': '1 1 320px'}),
+
+        html.Div([
+            html.H3("Dataset Filters", style={'color': '#2c3e50', 'marginBottom': 10}),
+            html.Div([
+                html.Div([
+                    html.Label("Config File:", style={'fontWeight': 'bold'}),
+                    dcc.Dropdown(
+                        id='config-filter',
+                        options=config_options,
+                        value=config_options and [opt['value'] for opt in config_options],
+                        multi=True,
+                        style={'width': '100%'}
+                    )
+                ], style={'marginBottom': 12}),
+
+                html.Div([
+                    html.Label("Particles / Thread:", style={'fontWeight': 'bold'}),
+                    dcc.Dropdown(
+                        id='particles-filter',
+                        options=particles_options,
+                        value=particles_options and [opt['value'] for opt in particles_options],
+                        multi=True,
+                        style={'width': '100%'}
+                    )
+                ], style={'marginBottom': 12}),
+
+                html.Div([
+                    html.Label("Max Threads (Config):", style={'fontWeight': 'bold'}),
+                    dcc.Dropdown(
+                        id='maxthreads-filter',
+                        options=max_threads_options,
+                        value=max_threads_options and [opt['value'] for opt in max_threads_options],
+                        multi=True,
+                        style={'width': '100%'}
+                    )
+                ], style={'marginBottom': 12}),
+
+                html.Div([
+                    html.Label("Machine:", style={'fontWeight': 'bold'}),
+                    dcc.Dropdown(
+                        id='machine-filter',
+                        options=machine_options,
+                        value=machine_options and [opt['value'] for opt in machine_options],
+                        multi=True,
+                        style={'width': '100%'}
+                    )
+                ], style={'marginBottom': 12}),
+
+                html.Div([
+                    html.Label("OS:", style={'fontWeight': 'bold'}),
+                    dcc.Dropdown(
+                        id='os-filter',
+                        options=os_options,
+                        value=os_options and [opt['value'] for opt in os_options],
+                        multi=True,
+                        style={'width': '100%'}
+                    )
+                ], style={'marginBottom': 12}),
+
+                html.Div([
+                    html.Label("Python Version:", style={'fontWeight': 'bold'}),
+                    dcc.Dropdown(
+                        id='python-filter',
+                        options=python_options,
+                        value=python_options and [opt['value'] for opt in python_options],
+                        multi=True,
+                        style={'width': '100%'}
+                    )
+                ])
+            ])
+        ], style={'backgroundColor': '#f8f9fa', 'padding': 20, 'borderRadius': 10, 'flex': '1 1 320px'}),
+
+        html.Div([
+            html.H3("Result Filters", style={'color': '#2c3e50', 'marginBottom': 10}),
             html.Div([
                 html.Label("Model:", style={'fontWeight': 'bold'}),
                 dcc.Dropdown(
@@ -113,7 +246,7 @@ app.layout = html.Div([
                     value=sorted(df['Model'].unique())[0] if not df.empty else None,
                     style={'width': '100%'}
                 )
-            ], style={'width': '25%', 'display': 'inline-block', 'marginRight': 20}),
+            ], style={'marginBottom': 12}),
 
             html.Div([
                 html.Label("Executable:", style={'fontWeight': 'bold'}),
@@ -124,18 +257,7 @@ app.layout = html.Div([
                     multi=True,
                     style={'width': '100%'}
                 )
-            ], style={'width': '25%', 'display': 'inline-block', 'marginRight': 20}),
-
-            html.Div([
-                html.Label("Dataset / Run:", style={'fontWeight': 'bold'}),
-                dcc.Dropdown(
-                    id='run-filter',
-                    options=run_options,
-                    value=run_values if run_values else [],
-                    multi=True,
-                    style={'width': '100%'}
-                )
-            ], style={'width': '25%', 'display': 'inline-block', 'marginRight': 20}),
+            ], style={'marginBottom': 12}),
 
             html.Div([
                 html.Label("Metric:", style={'fontWeight': 'bold'}),
@@ -148,9 +270,9 @@ app.layout = html.Div([
                     value='Active rate',
                     style={'width': '100%'}
                 )
-            ], style={'width': '25%', 'display': 'inline-block'})
-        ], style={'display': 'flex', 'marginBottom': 30})
-    ], style={'backgroundColor': '#f8f9fa', 'padding': 20, 'borderRadius': 10, 'marginBottom': 30}),
+            ])
+        ], style={'backgroundColor': '#f8f9fa', 'padding': 20, 'borderRadius': 10, 'flex': '1 1 260px'})
+    ], style={'display': 'flex', 'gap': 20, 'flexWrap': 'wrap', 'marginBottom': 30}),
 
     # Main charts section
     html.Div([
@@ -194,9 +316,26 @@ app.layout = html.Div([
     Input('model-filter', 'value'),
     Input('executable-filter', 'value'),
     Input('run-filter', 'value'),
+    Input('config-filter', 'value'),
+    Input('particles-filter', 'value'),
+    Input('maxthreads-filter', 'value'),
+    Input('machine-filter', 'value'),
+    Input('os-filter', 'value'),
+    Input('python-filter', 'value'),
     Input('metric-filter', 'value')
 )
-def update_charts(model, executables, runs, metric):
+def update_charts(
+    model,
+    executables,
+    runs,
+    config_files,
+    particles_per_thread,
+    max_threads_config,
+    machines,
+    os_values,
+    python_versions,
+    metric,
+):
     if df.empty:
         return {}, {}, {}, "No data available", "No data available"
 
@@ -208,6 +347,18 @@ def update_charts(model, executables, runs, metric):
         filtered_df = filtered_df[filtered_df['Executable'].isin(executables)]
     if runs:
         filtered_df = filtered_df[filtered_df['Run_ID'].isin(runs)]
+    if config_files:
+        filtered_df = filtered_df[filtered_df['Config_File'].isin(config_files)]
+    if particles_per_thread:
+        filtered_df = filtered_df[filtered_df['Particles_Per_Thread'].isin(particles_per_thread)]
+    if max_threads_config:
+        filtered_df = filtered_df[filtered_df['Config_Max_Threads'].isin(max_threads_config)]
+    if machines:
+        filtered_df = filtered_df[filtered_df['Machine'].isin(machines)]
+    if os_values:
+        filtered_df = filtered_df[filtered_df['OS'].isin(os_values)]
+    if python_versions:
+        filtered_df = filtered_df[filtered_df['Python_Version'].isin(python_versions)]
 
     if filtered_df.empty:
         return {}, {}, {}, "No data available for selected filters", "No data available"
@@ -332,7 +483,7 @@ def update_charts(model, executables, runs, metric):
     summary_stats.append(html.P(f"Total data points: {len(filtered_df)}"))
     summary_stats.append(html.P(f"Models: {', '.join(filtered_df['Model'].unique())}"))
     summary_stats.append(html.P(f"Executables: {', '.join(filtered_df['Executable'].unique())}"))
-    summary_stats.append(html.P(f"Runs: {filtered_df['Run_ID'].nunique()}"))
+    summary_stats.append(html.P(f"Datasets: {filtered_df['Run_ID'].nunique()}"))
     if filtered_df['Run_Date_Parsed'].notna().any():
         min_date = filtered_df['Run_Date_Parsed'].min().strftime('%Y-%m-%d')
         max_date = filtered_df['Run_Date_Parsed'].max().strftime('%Y-%m-%d')
