@@ -12,9 +12,22 @@ app = dash.Dash(__name__, title="XDG Benchmarking Dashboard")
 server = app.server
 
 # Data loading and processing functions
+def build_energy_axis(mean_flux, energy_divs):
+    if isinstance(energy_divs, list) and energy_divs:
+        if len(energy_divs) == len(mean_flux):
+            return energy_divs
+        if len(energy_divs) == len(mean_flux) + 1:
+            return [
+                (energy_divs[i] + energy_divs[i + 1]) / 2
+                for i in range(len(mean_flux))
+            ]
+    return list(range(1, len(mean_flux) + 1))
+
+
 def load_benchmark_data():
     """Load all benchmark data from the results directory (schema-based)."""
     data = []
+    flux_data = []
     results_dir = Path("results")
 
     if not results_dir.exists():
@@ -66,8 +79,35 @@ def load_benchmark_data():
                         }
                     )
 
+                flux = exec_results.get("flux")
+                if isinstance(flux, dict):
+                    mean_flux = flux.get("mean_flux")
+                    if isinstance(mean_flux, list) and mean_flux:
+                        energy_axis = build_energy_axis(mean_flux, flux.get("energy_divs"))
+                        for idx, flux_val in enumerate(mean_flux):
+                            flux_data.append(
+                                {
+                                    "Model": model_id,
+                                    "Executable": exec_id,
+                                    "Run_ID": run_id,
+                                    "Run_Date": run_date,
+                                    "Config_File": config.get("config_file"),
+                                    "Particles_Per_Thread": config.get("particles_per_thread"),
+                                    "Config_Max_Threads": config.get("max_threads"),
+                                    "N_Repeats": config.get("n_repeats"),
+                                    "Machine": arch.get("machine"),
+                                    "Processor": arch.get("processor"),
+                                    "CPU_Count": arch.get("cpu_count"),
+                                    "OS": arch.get("os"),
+                                    "Python_Version": arch.get("python_version"),
+                                    "Energy": energy_axis[idx] if idx < len(energy_axis) else idx + 1,
+                                    "Energy_Index": idx,
+                                    "Mean_Flux": flux_val,
+                                }
+                            )
+
     if not data:
-        return pd.DataFrame()
+        return pd.DataFrame(), pd.DataFrame()
 
     combined_df = pd.DataFrame(data)
     combined_df['# Threads'] = pd.to_numeric(combined_df['# Threads'], errors='coerce')
@@ -88,10 +128,26 @@ def load_benchmark_data():
     print(f"Column names: {combined_df.columns.tolist()}")
     print(f"Sample data:\n{combined_df.head()}")
 
-    return combined_df
+    flux_df = pd.DataFrame(flux_data)
+    if not flux_df.empty:
+        flux_df['Mean_Flux'] = pd.to_numeric(flux_df['Mean_Flux'], errors='coerce')
+        flux_df['Energy'] = pd.to_numeric(flux_df['Energy'], errors='coerce')
+        flux_df['Particles_Per_Thread'] = pd.to_numeric(
+            flux_df['Particles_Per_Thread'], errors='coerce'
+        )
+        flux_df['Config_Max_Threads'] = pd.to_numeric(
+            flux_df['Config_Max_Threads'], errors='coerce'
+        )
+        flux_df['N_Repeats'] = pd.to_numeric(flux_df['N_Repeats'], errors='coerce')
+        flux_df['CPU_Count'] = pd.to_numeric(flux_df['CPU_Count'], errors='coerce')
+        flux_df['Run_Date_Parsed'] = pd.to_datetime(
+            flux_df['Run_Date'], errors='coerce', utc=True
+        ).dt.tz_convert(None)
+
+    return combined_df, flux_df
 
 # Load data
-df = load_benchmark_data()
+df, flux_df = load_benchmark_data()
 
 def normalize_value(value):
     if hasattr(value, "item"):
@@ -293,6 +349,12 @@ app.layout = html.Div([
         dcc.Graph(id='comparison-chart', style={'height': 400})
     ], style={'marginBottom': 30}),
 
+    # Flux section
+    html.Div([
+        html.H3("Flux Spectrum", style={'color': '#2c3e50', 'marginBottom': 15}),
+        dcc.Graph(id='flux-chart', style={'height': 400})
+    ], style={'marginBottom': 30}),
+
     # Summary statistics
     html.Div([
         html.H3("Summary Statistics", style={'color': '#2c3e50', 'marginBottom': 15}),
@@ -311,6 +373,7 @@ app.layout = html.Div([
     Output('scaling-chart', 'figure'),
     Output('speedup-chart', 'figure'),
     Output('comparison-chart', 'figure'),
+    Output('flux-chart', 'figure'),
     Output('summary-stats', 'children'),
     Output('data-table', 'children'),
     Input('model-filter', 'value'),
@@ -337,7 +400,7 @@ def update_charts(
     metric,
 ):
     if df.empty:
-        return {}, {}, {}, "No data available", "No data available"
+        return {}, {}, {}, {}, "No data available", "No data available"
 
     # Filter data
     filtered_df = df.copy()
@@ -361,7 +424,7 @@ def update_charts(
         filtered_df = filtered_df[filtered_df['Python_Version'].isin(python_versions)]
 
     if filtered_df.empty:
-        return {}, {}, {}, "No data available for selected filters", "No data available"
+        return {}, {}, {}, {}, "No data available for selected filters", "No data available"
 
     filtered_df = filtered_df.sort_values(['Run_Date_Parsed', 'Run_ID', '# Threads'])
     run_order = filtered_df['Run_ID'].drop_duplicates().tolist()
@@ -475,6 +538,66 @@ def update_charts(
             hovermode='x unified'
         )
 
+    # Flux chart
+    flux_filtered = flux_df.copy()
+    if model:
+        flux_filtered = flux_filtered[flux_filtered['Model'] == model]
+    if executables:
+        flux_filtered = flux_filtered[flux_filtered['Executable'].isin(executables)]
+    if runs:
+        flux_filtered = flux_filtered[flux_filtered['Run_ID'].isin(runs)]
+    if config_files:
+        flux_filtered = flux_filtered[flux_filtered['Config_File'].isin(config_files)]
+    if particles_per_thread:
+        flux_filtered = flux_filtered[flux_filtered['Particles_Per_Thread'].isin(particles_per_thread)]
+    if max_threads_config:
+        flux_filtered = flux_filtered[flux_filtered['Config_Max_Threads'].isin(max_threads_config)]
+    if machines:
+        flux_filtered = flux_filtered[flux_filtered['Machine'].isin(machines)]
+    if os_values:
+        flux_filtered = flux_filtered[flux_filtered['OS'].isin(os_values)]
+    if python_versions:
+        flux_filtered = flux_filtered[flux_filtered['Python_Version'].isin(python_versions)]
+
+    if flux_filtered.empty:
+        flux_fig = go.Figure()
+        flux_fig.update_layout(
+            title='Flux Spectrum',
+            xaxis_title='Energy',
+            yaxis_title='Mean Flux'
+        )
+    else:
+        flux_filtered = flux_filtered.sort_values(['Run_Date_Parsed', 'Run_ID', 'Energy'])
+        flux_run_order = flux_filtered['Run_ID'].drop_duplicates().tolist()
+        flux_dash_by = 'Executable' if flux_filtered['Executable'].nunique() > 1 else None
+        flux_facet = 'Model' if flux_filtered['Model'].nunique() > 1 else None
+
+        flux_kwargs = dict(
+            data_frame=flux_filtered,
+            x='Energy',
+            y='Mean_Flux',
+            color='Run_ID',
+            title='Flux Spectrum',
+            labels={'Energy': 'Energy', 'Mean_Flux': 'Mean Flux'},
+            hover_data={'Executable': True, 'Run_Date': True, 'Run_ID': True},
+            category_orders={'Run_ID': flux_run_order},
+        )
+        if flux_dash_by:
+            flux_kwargs['line_dash'] = flux_dash_by
+        if flux_facet:
+            flux_kwargs['facet_row'] = flux_facet
+
+        flux_fig = px.line(**flux_kwargs)
+        min_energy = flux_filtered['Energy'].min()
+        if pd.notna(min_energy) and min_energy > 0:
+            flux_fig.update_xaxes(type='log')
+
+        flux_fig.update_layout(
+            xaxis_title='Energy',
+            yaxis_title='Mean Flux',
+            hovermode='x unified'
+        )
+
     # Summary statistics
     summary_stats = []
 
@@ -527,7 +650,7 @@ def update_charts(
         ]
     )
 
-    return scaling_fig, speedup_fig, comparison_fig, summary_stats, data_table
+    return scaling_fig, speedup_fig, comparison_fig, flux_fig, summary_stats, data_table
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=8050)
