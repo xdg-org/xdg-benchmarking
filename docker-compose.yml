@@ -16,9 +16,10 @@ services:
       - PORT=8050
       - MAX_WORKERS=4
       - LOG_LEVEL=INFO
+      - XDG_RESULTS_ZIP_URL=${XDG_RESULTS_ZIP_URL:-}
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8050/health/simple"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8050/', timeout=5)"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -40,7 +41,8 @@ services:
       - HOST=0.0.0.0
       - PORT=8050
       - LOG_LEVEL=DEBUG
-    command: python dashboard.py
+      - XDG_RESULTS_ZIP_URL=${XDG_RESULTS_ZIP_URL:-}
+    command: python app.py
     profiles:
       - dev
 
@@ -60,10 +62,11 @@ services:
       - PORT=8050
       - MAX_WORKERS=8
       - LOG_LEVEL=WARNING
-    command: gunicorn -c gunicorn.conf.py dashboard_production:server
+      - XDG_RESULTS_ZIP_URL=${XDG_RESULTS_ZIP_URL:-}
+    command: gunicorn -c gunicorn.conf.py app:server
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8050/health/simple"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8050/', timeout=5)"]
       interval: 30s
       timeout: 10s
       retries: 3

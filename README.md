@@ -45,6 +45,45 @@ A comprehensive Plotly Dash web application for exploring and analyzing XDG (Acc
    ```
 3. Open your web browser and navigate to `http://localhost:8050`
 
+### Fetching Remote Results
+
+Set `XDG_RESULTS_ZIP_URL` to the direct download URL of your benchmark ZIP before
+starting the app. Alternatively, create `local_config.json` beside `app.py`:
+
+```json
+{"results_zip_url": "https://example.com/benchmark-results.zip"}
+```
+
+The environment variable takes precedence. The ZIP can contain nested folders;
+each run needs schema-valid `config.json` and `results.json` files as described in
+[the schema documentation](docs/schema.md). Identical copies of a run are loaded
+once. Invalid runs are skipped and counted in the status message; archives with
+no valid data or conflicting copies fail the refresh.
+
+The first page visit fetches remote data if no remote snapshot is cached. Click
+**Refresh Data** to fetch later changes. The dashboard polls progress every two
+seconds and updates the charts and filters when the new dataset is ready. A date
+range covering all available dates expands to include new results. Selected run
+tags are preserved; refresh does not select new runs. Unavailable selections are
+identified on the page and restored automatically if a later refresh finds them.
+Empty advanced filters mean **All**, and explicit property selections are
+preserved where possible.
+
+Downloads have a 30-second socket timeout and a 120-second overall download
+budget. Data is validated before publishing, and failures keep the last working
+dataset. After a successful fetch, only the remote snapshot feeds the dashboard;
+bundled data is used until then. Downloaded data is cached under
+`results/.remote/` (or `$RESULTS_DIR/.remote/`) without modifying bundled runs.
+
+Gunicorn workers on one host share progress and cache files using filesystem
+locks. Multiple service instances need a shared filesystem for this mechanism.
+Use `gunicorn app:server` for deployment; the server honors `PORT` and
+`MAX_WORKERS`. The static GitHub Pages export has a separate, manual rebuild
+process described in [GITHUB_PAGES_SETUP.md](GITHUB_PAGES_SETUP.md).
+
+Run regression tests with
+`python -m unittest test_refresh test_run_selection test_comparison_url -v`.
+
 ### Data Structure
 The dashboard expects benchmark results in the following structure:
 ```
@@ -72,10 +111,41 @@ Each scaling CSV file should contain:
 ## Dashboard Features
 
 ### Filters
+- **Find runs**: Search across run IDs, UTC dates, configurations, and machine
+  metadata. Use the date range and collapsible advanced filters to narrow the
+  table. These discovery controls do not change your selected comparison.
+- **Selection**: The newest run starts selected. Check rows to compare runs,
+  choose **Select matching runs** to add all search results, or remove runs using
+  their selection chips. **Clear selection** leaves the charts empty until you
+  choose runs. Sorting, pagination, and searching preserve selected runs.
 - **Model**: Select specific reactor models (Tokamak, ATR, MSRE)
 - **Executable**: Choose which OpenMC implementations to compare
-- **Run ID**: Filter by specific benchmark runs
 - **Metric**: Switch between Active and Inactive rates
+
+### Sharing a comparison
+
+The address bar updates automatically with the selected run tags, model,
+executables, and metric. Copy that URL to reopen the same comparison or share it
+using the deployed site's address. Run discovery searches and advanced filters
+are separate from the plotted comparison and are not included in the link.
+
+For example:
+
+```text
+/?run=20251121_153916&run=20251121_225203&model=msre&exe=xdg&metric=active
+```
+
+Use repeated `run` and `exe` parameters for multiple selections. `metric` is
+`active` or `inactive`. An explicit `run=` preserves an empty selection on
+reload. Browser Back and Forward restore previous comparisons.
+
+Missing run tags stay in the URL and appear as removable **unavailable** chips.
+The page identifies missing tags and plots only available selected runs. If none
+are available, the charts explain how to recover rather than substituting a
+different run. Refreshing data retries those selections. Unknown model or
+executable choices are also identified; invalid metrics use active rate with a
+notice, and unreadable query parameters produce an empty comparison with a
+recovery message.
 
 ### Charts
 1. **Performance Scaling**: Line charts showing performance vs thread count

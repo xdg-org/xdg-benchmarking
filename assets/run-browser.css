@@ -1,0 +1,127 @@
+/* Local dashboard's run browser and comparison workspace. */
+html:has(.benchmark-page), body:has(.benchmark-page) {
+    height: auto;
+    max-height: none;
+    overflow-x: clip;
+    overflow-y: visible;
+}
+
+body:has(.benchmark-page) {
+    background: #f5f7fa;
+    color: #24364b;
+}
+
+.benchmark-page {
+    max-width: 1400px;
+    padding: 24px;
+    margin: 0 auto;
+    font-family: 'Segoe UI', Arial, sans-serif;
+    line-height: 1.45;
+}
+
+.benchmark-page * { box-sizing: border-box; }
+.benchmark-page h1 { font-size: 27px; margin: 0 0 4px; letter-spacing: -0.6px; }
+.benchmark-page h2 { font-size: 18px; margin: 0 0 3px; }
+.benchmark-page h3 { font-size: 17px; margin: 0 0 12px; }
+.benchmark-page p { margin: 0; color: #617184; font-size: 14px; }
+
+.benchmark-header, .browser-heading, .browser-search-row,
+.run-table-toolbar, .selection-heading, .refresh-controls {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.benchmark-header { margin-bottom: 18px; flex-wrap: wrap; }
+.refresh-controls { align-items: flex-end; flex-direction: column; gap: 5px; }
+.refresh-controls span { font-size: 12px; color: #617184; }
+.run-browser, .comparison-controls, .comparison-chart {
+    background: white;
+    border: 1px solid #dfe5ed;
+    border-radius: 10px;
+}
+.run-browser { padding: 16px 20px; margin-bottom: 16px; }
+.browser-heading { margin-bottom: 12px; }
+.browser-field { min-width: 0; }
+.browser-field > label { display: block; font-size: 12px; font-weight: 600; margin-bottom: 6px; }
+.browser-search-row { align-items: flex-end; }
+.search-field { flex: 1; }
+.search-field input {
+    width: 100%;
+    height: 42px;
+    border: 1px solid #cbd4df;
+    border-radius: 5px;
+    padding: 10px 12px;
+    font: inherit;
+    font-size: 14px;
+    color: #24364b;
+    background: white;
+}
+.date-field { flex: 0 0 auto; }
+.benchmark-page .DateRangePickerInput { border-color: #cbd4df; border-radius: 5px; }
+.benchmark-page .DateInput { width: 128px; background: transparent; }
+.benchmark-page .DateInput_input { font-size: 13px; padding: 10px 8px; background: transparent; }
+.benchmark-page .DateRangePicker_picker { z-index: 20; }
+.advanced-filters { margin-top: 8px; }
+.advanced-filters summary { cursor: pointer; font-size: 13px; color: #405d7c; padding: 5px 0; }
+.advanced-filter-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin: 12px 0; }
+.run-table-toolbar { margin: 0 0 8px; }
+#matching-count { color: #617184; font-size: 13px; }
+.benchmark-page button { font-family: inherit; cursor: pointer; }
+.secondary-button { background: white; border: 1px solid #becbda; color: #2f4e70; padding: 7px 12px; border-radius: 5px; font-size: 13px; white-space: nowrap; }
+.secondary-button:hover { background: #edf4fc; border-color: #7899be; }
+.text-button { background: transparent; border: 0; padding: 5px 0; color: #315f94; font-size: 13px; white-space: nowrap; }
+.text-button:hover { text-decoration: underline; }
+.benchmark-page :is(button, input, summary):focus-visible { outline: 3px solid #5189c8; outline-offset: 3px; }
+.benchmark-page input[type=checkbox] { accent-color: #326aaa; width: 16px; height: 16px; cursor: pointer; }
+.benchmark-page #run-table .dash-select-header { width: 36px; }
+.benchmark-page #run-table .dash-spreadsheet-container { border: 1px solid #e3e9f0; border-radius: 5px; }
+.benchmark-page #run-table tr:hover td { background-color: #f4f8fd; }
+.selection-summary { border-top: 1px solid #e5eaf1; margin-top: 12px; padding-top: 12px; }
+.selection-heading { justify-content: flex-start; font-size: 13px; }
+.selected-run-chips { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 9px; }
+.selected-run-chips:empty { margin-top: 0; }
+.run-chip { display: inline-flex; align-items: center; gap: 10px; border-radius: 5px; border: 1px solid #cbdcf0; background: #eff5fc; color: #2b527e; padding: 6px 9px; font-size: 12px; text-align: left; max-width: 100%; }
+.run-chip span:first-child { overflow-wrap: anywhere; }
+.run-chip:hover { background: #e1edfb; border-color: #8baed5; }
+.chip-remove { font-size: 17px; line-height: 1; }
+.unavailable-run-chip { background: #fff7e8; border-color: #e2c58d; color: #76541b; }
+.comparison-notices:not(:empty) {
+    margin-bottom: 16px;
+    padding: 12px 16px;
+    border: 1px solid #e2c58d;
+    border-radius: 8px;
+    background: #fff9ed;
+    overflow-wrap: anywhere;
+}
+.comparison-notices p { color: #76541b; }
+.comparison-notices p + p { margin-top: 6px; }
+.browser-empty:not(:empty) { padding: 18px 10px; background: #f7f9fc; font-size: 14px; text-align: center; }
+.comparison-controls { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; padding: 16px 20px; margin-bottom: 18px; }
+.comparison-charts { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px; margin-bottom: 24px; }
+.comparison-chart { padding: 16px 10px 0; min-width: 0; overflow: hidden; }
+.comparison-chart h3 { margin-left: 10px; }
+.benchmark-page .js-plotly-plot, .benchmark-page .plotly-graph-div { max-height: none !important; }
+
+@media (max-width: 850px) {
+    .benchmark-page { padding: 16px; }
+    .benchmark-header h1 { font-size: 23px; }
+    .refresh-controls { align-items: flex-start; }
+    .browser-search-row { flex-wrap: wrap; }
+    .search-field { flex-basis: 100%; }
+    .comparison-charts { grid-template-columns: minmax(0, 1fr); }
+    .advanced-filter-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 520px) {
+    .benchmark-page { padding: 12px; }
+    .run-browser { padding: 14px; }
+    .browser-heading { align-items: flex-start; }
+    .browser-heading p { font-size: 12px; }
+    .comparison-controls { grid-template-columns: minmax(0, 1fr); gap: 12px; padding: 14px; }
+    .advanced-filter-grid { grid-template-columns: minmax(0, 1fr); }
+    .selection-heading { align-items: flex-start; justify-content: space-between; }
+    .date-field { max-width: 100%; }
+    .benchmark-page .DateInput { width: 114px; }
+}

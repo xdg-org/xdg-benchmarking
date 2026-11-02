@@ -18,4 +18,4 @@ COPY . .
 EXPOSE 8050
 
 # Run the application
-CMD ["gunicorn", "--bind", "0.0.0.0:8050", "dashboard:server"]
+CMD ["gunicorn", "app:server"]

@@ -14,7 +14,9 @@ Render.com offers free hosting for web services with automatic GitHub deployment
 4. **Create a new Web Service**:
    - Connect your repository
    - Set **Build Command**: `pip install -r requirements.txt`
-   - Set **Start Command**: `gunicorn dashboard:server`
+   - Set **Start Command**: `gunicorn app:server`
+   - Set `XDG_RESULTS_ZIP_URL` to the direct benchmark ZIP download URL
+     (see [remote results configuration](README.md#fetching-remote-results))
    - Set **Environment**: Python 3
 5. **Deploy** - Render will automatically build and deploy your app
 
@@ -56,7 +58,7 @@ Heroku is a mature platform with excellent Dash support.
 1. **Install Heroku CLI**
 2. **Create a `Procfile`**:
    ```
-   web: gunicorn dashboard:server
+   web: gunicorn app:server
    ```
 3. **Deploy**:
    ```bash
@@ -83,7 +85,7 @@ DigitalOcean's App Platform is great for containerized applications.
 3. **Connect your GitHub repository**
 4. **Configure the app**:
    - Build Command: `pip install -r requirements.txt`
-   - Run Command: `gunicorn dashboard:server`
+   - Run Command: `gunicorn app:server`
 5. **Deploy**
 
 ### Benefits:
